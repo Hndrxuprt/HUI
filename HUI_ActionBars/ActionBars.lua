@@ -212,6 +212,7 @@ function Addon:RefreshAllButtons()
     end
     Addon:ProcessButtons(nil, UpdateAll)
     Addon:UpdateExtraActionButton()
+    Addon:UpdateZoneAbilityButtons()
 end
 
 function Addon:UpdateActionBarGrid(frame, padding, equal)
@@ -559,6 +560,34 @@ function Addon:UpdateExtraActionButton()
     end
 end
 
+function Addon:UpdateZoneAbilityButtons()
+    local frame = ZoneAbilityFrame
+    if not frame or not frame.SpellButtonContainer then return end
+
+    if frame.Style then
+        frame.Style:Hide()
+    end
+
+    for button in frame.SpellButtonContainer:EnumerateActive() do
+        if not button.__huiZoneAbility then
+            button.icon = button.Icon
+            button.cooldown = button.Cooldown
+            button.chargeCooldown = button.ChargeCooldown
+            button.HighlightTexture = button:GetHighlightTexture()
+            button.IconMask = button:CreateMaskTexture()
+            button.Icon:AddMaskTexture(button.IconMask)
+            button.__huiZoneAbility = true
+        end
+
+        Addon:UpdateNormalTexture(button, false)
+        Addon:UpdateHighlightTexture(button, false)
+        Addon:UpdateIconMask(button, false)
+        Addon:UpdateIcon(button, false)
+        Addon:UpdateCooldown(button, false)
+        Addon:RefreshCooldown(button, false)
+    end
+end
+
 local function RefreshDesaturated(icon, desaturated)
     local button = icon:GetParent()
     icon:SetDesaturated(desaturated)
@@ -755,7 +784,7 @@ function Addon:UpdateHighlightTexture(button, isStanceBar, previewValue)
             end
             if highlightAtlas.size then
                 button.HighlightTexture:SetSize(highlightAtlas.size[1], highlightAtlas.size[2])
-            elseif button == ExtraActionButton1 then
+            elseif button == ExtraActionButton1 or button.__huiZoneAbility then
                 button.HighlightTexture:SetSize(46, 45)
             end
             if highlightAtlas.coords then
@@ -863,10 +892,12 @@ function Addon:UpdateCooldown(button, isStanceBar, previewValue)
         button.cooldown:SetPoint("CENTER", button.icon, "CENTER", 0, 0)
         button.cooldown:SetSize(size, size)
 
-        button.lossOfControlCooldown:ClearAllPoints()
-        local size = isStanceBar and Addon:GetValue("SwipeSize", nil, configName)*0.69 or Addon:GetValue("SwipeSize", nil, configName)
-        button.lossOfControlCooldown:SetPoint("CENTER", button.icon, "CENTER", 0, 0)
-        button.lossOfControlCooldown:SetSize(size, size)
+        if button.lossOfControlCooldown then
+            button.lossOfControlCooldown:ClearAllPoints()
+            local size = isStanceBar and Addon:GetValue("SwipeSize", nil, configName)*0.69 or Addon:GetValue("SwipeSize", nil, configName)
+            button.lossOfControlCooldown:SetPoint("CENTER", button.icon, "CENTER", 0, 0)
+            button.lossOfControlCooldown:SetSize(size, size)
+        end
     end
 
     local color = {r = 1.0, g = 1.0, b = 1.0, a = 1.0}
@@ -1462,6 +1493,14 @@ local function OnPlayerLogin()
     hooksecurefunc("ExtraActionBar_Update", function()
         Addon:UpdateExtraActionButton()
     end)
+
+    Addon:UpdateZoneAbilityButtons()
+
+    if ZoneAbilityFrame then
+        hooksecurefunc(ZoneAbilityFrame, "UpdateDisplayedZoneAbilities", function()
+            Addon:UpdateZoneAbilityButtons()
+        end)
+    end
 
     if ActionButton_ApplyCooldown then
         hooksecurefunc("ActionButton_ApplyCooldown", Hook_ActionButton_ApplyCooldown)
