@@ -24,7 +24,16 @@ local fadeBars = {
     "UtilityCooldownViewer",
     "BuffIconCooldownViewer",
     "BuffBarCooldownViewer",
+    "ExtraActionBarFrame",
+    "ZoneAbilityFrame",
 }
+local fadeConfigAliases = {
+    ExtraActionBarFrame = "ExtraZoneAbility",
+    ZoneAbilityFrame = "ExtraZoneAbility",
+}
+local function GetFadeConfigName(frameName)
+    return fadeConfigAliases[frameName] or frameName
+end
 local function SetFadeBars()
     local profileTable = Addon.CurrentProfileTbl or Addon:GetCurrentProfileTable()
     if profileTable and profileTable["CDMCustomFrames"] then
@@ -154,10 +163,12 @@ local function ShouldFadeIn(frame, isHover)
 
     if not frame then return false end
 
-    return (Addon:GetValue("FadeInOnCombat", nil, frame:GetName()) and UnitAffectingCombat("player"))
-    or (Addon:GetValue("FadeInOnTarget", nil, frame:GetName()) and UnitExists("target"))
-    or (Addon:GetValue("FadeInOnCasting", nil, frame:GetName()) and UnitCastingInfo("player"))
-    or (Addon:GetValue("FadeInOnHover", nil, frame:GetName()) and isHover)
+    local configName = GetFadeConfigName(frame:GetName())
+
+    return (Addon:GetValue("FadeInOnCombat", nil, configName) and UnitAffectingCombat("player"))
+    or (Addon:GetValue("FadeInOnTarget", nil, configName) and UnitExists("target"))
+    or (Addon:GetValue("FadeInOnCasting", nil, configName) and UnitCastingInfo("player"))
+    or (Addon:GetValue("FadeInOnHover", nil, configName) and isHover)
     or GetCursorInfo()
 end
 
@@ -192,10 +203,11 @@ end
 function Addon:SetFrameAlpha(frame, toAlpha)
     local frameName = frame:GetName()
     if not toAlpha then
+        local configName = GetFadeConfigName(frameName)
         if Addon.externalFadeBars[frameName] then
             toAlpha = Addon.externalFadeBars[frameName].alpha
-        elseif Addon:GetValue("FadeBars", nil, frameName) then
-            toAlpha = Addon:GetValue("FadeBarsAlpha", nil, frameName)
+        elseif Addon:GetValue("FadeBars", nil, configName) then
+            toAlpha = Addon:GetValue("FadeBarsAlpha", nil, configName)
         else
             toAlpha = 1
         end
@@ -215,7 +227,7 @@ end
 function Addon:Fade(frame, isHover)
     local frameName = frame:GetName()
     if not tContains(fadeBars, frameName) then return end
-    if not Addon:GetValue("FadeBars", nil, frameName) then
+    if not Addon:GetValue("FadeBars", nil, GetFadeConfigName(frameName)) then
         if frame:GetAlpha() < 1 then
             Addon:SetFrameAlpha(frame, 1)
         end
@@ -238,7 +250,7 @@ function Addon:BarsFadeAnim(frame)
         for _, barName in ipairs(fadeBars) do
             frame = _G[barName]
             if frame then
-                if Addon:GetValue("FadeBars", nil, barName) then
+                if Addon:GetValue("FadeBars", nil, GetFadeConfigName(barName)) then
                     if ShouldFadeIn(frame)  then
                         Addon:SetFrameAlpha(frame, 1)
                     else
@@ -253,7 +265,7 @@ function Addon:BarsFadeAnim(frame)
     else
         local frameName = frame:GetName()
         if not tContains(fadeBars, frameName) then return end
-        if Addon:GetValue("FadeBars", nil, frameName) then
+        if Addon:GetValue("FadeBars", nil, GetFadeConfigName(frameName)) then
             if ShouldFadeIn(frame) then
                 Addon:SetFrameAlpha(frame, 1)
             else

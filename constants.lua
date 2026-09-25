@@ -301,6 +301,9 @@ Addon.Defaults = {
     FadeInOnHover = false,
     RightClickPassThrough = false,
 
+    ExtraZoneAbilityEnable = true,
+    ExtraZoneAbilityArt = 2,
+
     CurrentNormalTexture = 1,
     DesaturateNormal = false,
     UseNormalTextureColor = false,
@@ -2087,5 +2090,179 @@ Addon.Templates = {
             texture = "GM-raidMarker-remove",
         },
 
+    },
+    ExtraZoneAbilityArts = {
+        {
+            name = "None",
+            hide = true,
+        },
+        {
+            name = "Default",
+            default = true,
+        },
+        {
+            name = "Air",
+            atlas = "air-extrabutton",
+        },
+        {
+            name = "Cypher",
+            atlas = "cypher-zone-ability",
+            belowIcon = true,
+        },
+        {
+            name = "Progenitor",
+            atlas = "progenitor-extrabutton",
+        },
+        {
+            name = "Fire",
+            atlas = "fire-extrabutton",
+        },
+        {
+            name = "Generic",
+            atlas = "generic-extrabutton",
+        },
+        {
+            name = "Nerubian",
+            atlas = "nerubian-extrabutton",
+        },
+        {
+            name = "Storm White",
+            atlas = "stormwhite-extrabutton",
+        },
+        {
+            name = "Storm Blue",
+            atlas = "stormblue-extrabutton",
+        },
+        {
+            name = "Storm Purple",
+            atlas = "stormpurple-extrabutton",
+        },
+        {
+            name = "Storm Yellow",
+            atlas = "stormyellow-extrabutton",
+        },
+        {
+            name = "Torghast",
+            atlas = "Torghast-Empowered",
+        },
+        {
+            name = "Water",
+            atlas = "water-extrabutton",
+        },
+        {
+            name = "Garrison Armory",
+            atlas = "GarrZoneAbility-Armory",
+        },
+        {
+            name = "Garrison Barracks (Alliance)",
+            atlas = "GarrZoneAbility-BarracksAlliance",
+        },
+        {
+            name = "Garrison Barracks (Horde)",
+            atlas = "GarrZoneAbility-BarracksHorde",
+        },
+        {
+            name = "Garrison Inn",
+            atlas = "GarrZoneAbility-Inn",
+        },
+        {
+            name = "Garrison Lumber Mill",
+            atlas = "GarrZoneAbility-LumberMill",
+        },
+        {
+            name = "Garrison Mage Tower",
+            atlas = "GarrZoneAbility-MageTower",
+        },
+        {
+            name = "Garrison Stables",
+            atlas = "GarrZoneAbility-Stables",
+        },
+        {
+            name = "Garrison Trading Post",
+            atlas = "GarrZoneAbility-TradingPost",
+        },
+        {
+            name = "Garrison Training Pit",
+            atlas = "GarrZoneAbility-TrainingPit",
+        },
+        {
+            name = "Garrison Workshop",
+            atlas = "GarrZoneAbility-Workshop",
+        },
+        {
+            name = "Ardenweald",
+            atlas = "ardenweald-zone-ability",
+            belowIcon = true,
+        },
+        {
+            name = "Maldraxxus",
+            atlas = "maldraxxus-zone-ability",
+            belowIcon = true,
+        },
+        {
+            name = "Bastion",
+            atlas = "bastion-zone-ability",
+            belowIcon = true,
+        },
+        {
+            name = "Revendreth",
+            atlas = "revendreth-zone-ability",
+            belowIcon = true,
+        },
+        {
+            name = "World Quest Follower",
+            atlas = "worldquest-followerabilityframe",
+            offsetY = -5,
+        },
+        {
+            name = "Housing Wood Frame",
+            atlas = "housing-item-wood-frame_64",
+            size = {52, 52},
+            offsetX = -1,
+            offsetY = 1,
+        },
+        {
+            name = "Blacksmithing Border",
+            atlas = "Capacitance-Blacksmithing-IconBorder",
+        },
+        {
+            name = "Shop Gold Rim",
+            atlas = "shop-gold-rim",
+            size = {60, 56},
+        },
+        {
+            name = "Item Upgrade Slot",
+            atlas = "ItemUpgrade_SlotBorder",
+            size = {56, 56},
+            offsetX = -1,
+            offsetY = 1,
+        },
+        {
+            name = "Legion Mission Ability",
+            atlas = "legionmission-EncounterAbilityBorder-Lg",
+        },
+        {
+            name = "Runecarving",
+            atlas = "runecarving-icon-center-empty",
+            belowIcon = true,
+            size = {62, 62},
+            offsetX = -1,
+            offsetY = 1,
+        },
+        {
+            name = "Spellbook Icon Frame",
+            atlas = "spellbook-item-iconframe",
+            size = {60, 58},
+            offsetX = -4,
+            offsetY = -4,
+        },
+        {
+            name = "Cooldown Alert Glow",
+            atlas = "UI-CooldownManager-VisualAlert-Glow",
+        },
+        {
+            name = "Transmog Gear Slot",
+            atlas = "transmog-gearSlot-transmogrified",
+        },
     }
 }

@@ -557,3 +557,9 @@ L.LockedInCombat = "Настройки заблокированы во врем�
 L.SpecVisibilityDialogTitle = "Отображать на специализациях"
 L.SpecVisibilitySave = "Сохранить"
 L.SpecVisibilityCancel = "Отмена"
+
+L.ExtraZoneAbility = "Extra/Zone кнопки"
+L.ExtraZoneAbilityTitle = "Extra Action Button и Zone Ability"
+L.ExtraZoneAbilityDesc = "Включить скинование и выбрать оформление для кнопок Extra Action Button и Zone Ability"
+L.ExtraZoneAbilityEnable = "Включить скин кнопок Extra/Zone"
+L.ExtraZoneAbilityArt = "Оформление кнопки"

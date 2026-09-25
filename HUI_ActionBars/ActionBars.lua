@@ -168,32 +168,6 @@ local function UpdateAllButtonVisuals(button, isStanceBar)
     Addon:UpdateButtonFont(button, isStanceBar)
 end
 
-function Addon:UpdateExtraActionButton()
-    local button = ExtraActionButton1
-    if not button then return end
-
-    if button.PushedTexture then
-        Addon:UpdatePushedTexture(button, false)
-    end
-    if button.HighlightTexture then
-        Addon:UpdateHighlightTexture(button, false)
-    end
-    if button.IconMask then
-        Addon:UpdateIconMask(button, false)
-    end
-    if button.icon then
-        Addon:UpdateIcon(button, false)
-    end
-    if button.cooldown then
-        Addon:UpdateCooldown(button, false)
-        Addon:RefreshCooldown(button, false)
-    end
-    Addon:UpdateButtonFont(button, false)
-    if button.style then
-        button.style:Hide()
-    end
-end
-
 function Addon:RefreshButtons(button)
     local selectedBar = HUI_BarsListMixin:GetFrameLebel()
     local actionBar = selectedBar ~= "GlobalSettings" and selectedBar or nil
@@ -526,9 +500,69 @@ local function Hook_UpdateHotkeys(self, actionButtonType)
     Addon:UpdateButtonFont(self)    
 end
 
+function Addon:UpdateExtraZoneArt(previewValue)
+    local index = previewValue or Addon:GetValue("ExtraZoneAbilityArt", nil, "ExtraZoneAbility")
+    local entry = T.ExtraZoneAbilityArts and T.ExtraZoneAbilityArts[index]
+    if not entry then return end
+
+    local styles = {}
+    if ExtraActionButton1 and ExtraActionButton1.style then
+        table.insert(styles, ExtraActionButton1.style)
+    end
+    if ZoneAbilityFrame and ZoneAbilityFrame.Style then
+        table.insert(styles, ZoneAbilityFrame.Style)
+    end
+
+    for _, style in ipairs(styles) do
+        if not style.__huiOrigLayer then
+            style.__huiOrigLayer, style.__huiOrigSubLevel = style:GetDrawLayer()
+        end
+    end
+
+    if entry.hide then
+        for _, style in ipairs(styles) do
+            if style.__huiOrigLayer then
+                style:SetDrawLayer(style.__huiOrigLayer, style.__huiOrigSubLevel)
+            end
+            style:ClearAllPoints()
+            style:SetPoint("CENTER", style:GetParent(), "CENTER", 0, 0)
+            style:Hide()
+        end
+    elseif entry.default then
+        for _, style in ipairs(styles) do
+            if style.__huiOrigLayer then
+                style:SetDrawLayer(style.__huiOrigLayer, style.__huiOrigSubLevel)
+            end
+            style:ClearAllPoints()
+            style:SetPoint("CENTER", style:GetParent(), "CENTER", 0, 0)
+        end
+    else
+        for _, style in ipairs(styles) do
+            if entry.belowIcon then
+                style:SetDrawLayer("BACKGROUND", -7)
+            elseif style.__huiOrigLayer then
+                style:SetDrawLayer(style.__huiOrigLayer, style.__huiOrigSubLevel)
+            end
+            style:ClearAllPoints()
+            style:SetPoint("CENTER", style:GetParent(), "CENTER", entry.offsetX or 0, entry.offsetY or 0)
+            style:Show()
+            pcall(function()
+                style:SetAtlas(entry.atlas, true)
+                if entry.size then
+                    style:SetSize(entry.size[1], entry.size[2])
+                end
+            end)
+        end
+    end
+end
+
 function Addon:UpdateExtraActionButton()
+    if not Addon:GetValue("ExtraZoneAbilityEnable", nil, "ExtraZoneAbility") then return end
+
     local button = ExtraActionButton1
     if not button then return end
+
+    button.parentName = "ExtraZoneAbility"
 
     if button.PushedTexture then
         Addon:UpdatePushedTexture(button, false)
@@ -551,8 +585,11 @@ function Addon:UpdateExtraActionButton()
         Addon:RefreshCooldown(button, false)
     end
     Addon:UpdateButtonFont(button, false)
-    if button.style then
-        button.style:Hide()
+    Addon:UpdateExtraZoneArt()
+    if not button.__hookedExtraZoneFade and ExtraActionBarFrame then
+        button:HookScript("OnEnter", function() Addon:Fade(ExtraActionBarFrame, true) end)
+        button:HookScript("OnLeave", function() Addon:Fade(ExtraActionBarFrame, false) end)
+        button.__hookedExtraZoneFade = true
     end
     if button.UpdateHotkeys and not button.__hookedUpdateHotkeys then
         hooksecurefunc(button, "UpdateHotkeys", Hook_UpdateHotkeys)
@@ -561,14 +598,13 @@ function Addon:UpdateExtraActionButton()
 end
 
 function Addon:UpdateZoneAbilityButtons()
+    if not Addon:GetValue("ExtraZoneAbilityEnable", nil, "ExtraZoneAbility") then return end
+
     local frame = ZoneAbilityFrame
     if not frame or not frame.SpellButtonContainer then return end
 
-    if frame.Style then
-        frame.Style:Hide()
-    end
-
     for button in frame.SpellButtonContainer:EnumerateActive() do
+        button.parentName = "ExtraZoneAbility"
         if not button.__huiZoneAbility then
             button.icon = button.Icon
             button.cooldown = button.Cooldown
@@ -576,7 +612,12 @@ function Addon:UpdateZoneAbilityButtons()
             button.HighlightTexture = button:GetHighlightTexture()
             button.IconMask = button:CreateMaskTexture()
             button.Icon:AddMaskTexture(button.IconMask)
+            button:HookScript("OnEnter", function() Addon:Fade(frame, true) end)
+            button:HookScript("OnLeave", function() Addon:Fade(frame, false) end)
             button.__huiZoneAbility = true
+        end
+        if not button.NormalTexture then
+            button.NormalTexture = button:CreateTexture(nil, "OVERLAY")
         end
 
         Addon:UpdateNormalTexture(button, false)
@@ -586,6 +627,8 @@ function Addon:UpdateZoneAbilityButtons()
         Addon:UpdateCooldown(button, false)
         Addon:RefreshCooldown(button, false)
     end
+
+    Addon:UpdateExtraZoneArt()
 end
 
 local function RefreshDesaturated(icon, desaturated)
@@ -1494,13 +1537,24 @@ local function OnPlayerLogin()
         Addon:UpdateExtraActionButton()
     end)
 
-    Addon:UpdateZoneAbilityButtons()
-
-    if ZoneAbilityFrame then
+    local function HookZoneAbilityFrame()
+        if not ZoneAbilityFrame or ZoneAbilityFrame.__huiHookedZoneAbility then return end
         hooksecurefunc(ZoneAbilityFrame, "UpdateDisplayedZoneAbilities", function()
             Addon:UpdateZoneAbilityButtons()
         end)
+        ZoneAbilityFrame.__huiHookedZoneAbility = true
+        Addon:UpdateZoneAbilityButtons()
     end
+
+    Addon:RegisterEvent("ADDON_LOADED", function(addonName)
+        if addonName == "Blizzard_ZoneAbility" or addonName == "Blizzard_ZoneAbility_Mainline" then
+            Addon:UpdateZoneAbilityButtons()
+            HookZoneAbilityFrame()
+        end
+    end, "ActionBars")
+
+    Addon:UpdateZoneAbilityButtons()
+    HookZoneAbilityFrame()
 
     if ActionButton_ApplyCooldown then
         hooksecurefunc("ActionButton_ApplyCooldown", Hook_ActionButton_ApplyCooldown)

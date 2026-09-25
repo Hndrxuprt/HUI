@@ -161,6 +161,131 @@ Addon.layoutMini = {
     },
 }
 
+Addon.layoutExtraZone = {
+    {
+        name = "ExtraZoneAbilityOptionsContainer",
+        childs = {
+            {name = "ExtraZoneAbilityEnable", template = "OptionsCheckboxTemplate"},
+            {name = "ExtraZoneAbilityArt", template = "OptionsDropdownTemplate"},
+        }
+    },
+    {
+        name = "FadeOptionsContainer",
+        childs = {
+            {name = "FadeOutBars", template = "OptionsCheckboxSliderTemplate"},
+            {name = "FadeInOnCombat", template = "OptionsCheckboxTemplate"},
+            {name = "FadeInOnTarget", template = "OptionsCheckboxTemplate"},
+            {name = "FadeInOnCasting", template = "OptionsCheckboxTemplate"},
+            {name = "FadeInOnHover", template = "OptionsCheckboxTemplate"},
+        }
+    },
+    {
+        name = "NormalOptionsContainer",
+        childs = {
+            {name = "NormalTextureOptions", template = "OptionsDropdownTemplate"},
+            {name = "CustomColorNormal", template = "OptionsColorOverrideTemplate"},
+            {name = "PreviewNormal", template = "OptionsButtonPreviewTemplate", point = {"TOP", "desc", "BOTTOM", 180, -10}, scale="1.8"},
+        }
+    },
+    {
+        name = "BackdropOptionsContainer",
+        childs = {
+            {name = "BackdropTextureOptions", template = "OptionsDropdownTemplate"},
+            {name = "CustomColorBackdrop", template = "OptionsColorOverrideTemplate"},
+            {name = "PreviewBackdrop", template = "OptionsButtonPreviewTemplate", point = {"TOP", "desc", "BOTTOM", 180, -10}, scale="1.8"},
+        }
+    },
+    {
+        name = "IconOptionsContainer",
+        childs = {
+            {name = "IconMaskTextureOptions", template = "OptionsDropdownTemplate"},
+            {name = "MaskScale", template = "OptionsCheckboxSliderTemplate"},
+            {name = "IconScale", template = "OptionsCheckboxSliderTemplate"},
+            {name = "PreviewIcon", template = "OptionsButtonPreviewTemplate", point = {"TOP", "desc", "BOTTOM", 180, -10}, scale="1.8"},
+        }
+    },
+    {
+        name = "PushedOptionsContainer",
+        childs = {
+            {name = "PushedTextureOptions", template = "OptionsDropdownTemplate"},
+            {name = "CustomColorPushed", template = "OptionsColorOverrideTemplate"},
+            {name = "PreviewPushed", template = "OptionsButtonPreviewTemplate", point = {"TOP", "desc", "BOTTOM", 180, -10}, scale="1.8"},
+        }
+    },
+    {
+        name = "HighlightOptionsContainer",
+        childs = {
+            {name = "HighlightTextureOptions", template = "OptionsDropdownTemplate"},
+            {name = "CustomColorHighlight", template = "OptionsColorOverrideTemplate"},
+            {name = "PreviewHighlight", template = "OptionsButtonPreviewTemplate", point = {"TOP", "desc", "BOTTOM", 180, -10}, scale="1.8"},
+        }
+    },
+    {
+        name = "CheckedOptionsContainer",
+        childs = {
+            {name = "CheckedTextureOptions", template = "OptionsDropdownTemplate"},
+            {name = "CustomColorChecked", template = "OptionsColorOverrideTemplate"},
+            {name = "PreviewChecked", template = "OptionsButtonPreviewTemplate", point = {"TOP", "desc", "BOTTOM", 180, -10}, scale="1.8"},
+        }
+    },
+    {
+        name = "CooldownOptionsContainer",
+        childs = {
+            {name = "SwipeTexture", template = "OptionsDropdownTemplate"},
+            {name = "SwipeSize", template = "OptionsCheckboxSliderTemplate"},
+            {name = "SwipeColor", template = "OptionsColorOverrideTemplate"},
+            {name = "ShowCountdownNumbersForCharges", template = "OptionsCheckboxTemplate"},
+
+            {name = "Divider", template = "OptionsDividerTemplate"},
+
+            {name = "EdgeTexture", template = "OptionsDropdownTemplate"},
+            {name = "EdgeSize", template = "OptionsCheckboxSliderTemplate"},
+            {name = "EdgeColor", template = "OptionsColorOverrideTemplate"},
+            {name = "EdgeAlwaysShow", template = "OptionsCheckboxTemplate"},
+
+            {name = "Divider2", template = "OptionsDividerTemplate"},
+
+            {name = "CooldownFont", template = "OptionsDropdownTemplate"},
+            {name = "CooldownFontSize", template = "OptionsCheckboxSliderTemplate"},
+            {name = "CooldownFontOffset", template = "OptionsDoubleCheckboxSliderTemplate"},
+            {name = "CooldownFontColor", template = "OptionsColorOverrideTemplate"},
+            --{name = "ColorizedCooldownFont", template = "OptionsCheckboxTemplate"},
+            {name = "PreviewSwipe", template = "OptionsButtonCooldownPreviewTemplate", point = {"TOP", "desc", "BOTTOM", 180, -10}, scale="1.8"},
+            {name = "PreviewEdge", template = "OptionsButtonCooldownPreviewTemplate", point = {"TOP", "desc", "BOTTOM", 180, -90}, scale="1.8"},
+            {name = "PreviewCooldownFont", template = "OptionsButtonCooldownPreviewTemplate", point = {"TOP", "desc", "BOTTOM", 180, -170}, scale="1.8"},
+        }
+    },
+    {
+        name = "FontOptionsContainer",
+        childs = {
+            {name = "HotkeyFont", template = "OptionsDropdownTemplate"},
+            {name = "HotkeyOutline", template = "OptionsDropdownTemplate"},
+            {name = "HotkeySize", template = "OptionsCheckboxSliderTemplate"},
+            {name = "HotkeyColor", template = "OptionsColorOverrideTemplate"},
+            {name = "HotkeyPoint", template = "OptionsDoubleDropdownTemplate"},
+            {name = "HotkeyOffset", template = "OptionsDoubleCheckboxSliderTemplate"},
+            {name = "HotkeyShadow", template = "OptionsColorOverrideTemplate"},
+            {name = "HotkeyShadowOffset", template = "OptionsDoubleCheckboxSliderTemplate"},
+            {name = "HotkeyScale", template = "OptionsCheckboxSliderTemplate"},
+            {name = "Divider", template = "OptionsDividerTemplate"},
+            {name = "StacksFont", template = "OptionsDropdownTemplate"},
+            {name = "StacksOutline", template = "OptionsDropdownTemplate"},
+            {name = "StacksSize", template = "OptionsCheckboxSliderTemplate"},
+            {name = "StacksColor", template = "OptionsColorOverrideTemplate"},
+            {name = "StacksPoint", template = "OptionsDoubleDropdownTemplate"},
+            {name = "StacksOffset", template = "OptionsDoubleCheckboxSliderTemplate"},
+            {name = "StacksShadow", template = "OptionsColorOverrideTemplate"},
+            {name = "StacksShadowOffset", template = "OptionsDoubleCheckboxSliderTemplate"},
+            {name = "StacksScale", template = "OptionsCheckboxSliderTemplate"},
+            {name = "PreviewFont2", template = "OptionsButtonTextPreviewTemplate", point = {"RIGHT", "container", "RIGHT", 20, 80}, scale="2.0"},
+            {name = "PreviewFont15", template = "OptionsButtonTextPreviewTemplate", point = {"TOP", "PreviewFont2", "BOTTOM", 0, -5}, scale="1.5"},
+            {name = "PreviewFont1", template = "OptionsButtonTextPreviewTemplate", point = {"TOP", "PreviewFont15", "BOTTOM", 0, -5}, scale="1.0"},
+            {name = "PreviewFont075", template = "OptionsButtonTextPreviewTemplate", point = {"TOP", "PreviewFont1", "BOTTOM", 0, -5}, scale="0.75"},
+            {name = "PreviewFont05", template = "OptionsButtonTextPreviewTemplate", point = {"TOP", "PreviewFont075", "BOTTOM", 0, -5}, scale="0.5"},
+        }
+    },
+}
+
 Addon.layoutModules = {
     {
         name = "ModulesOptionsContainer",

@@ -173,6 +173,42 @@ Addon.config.containers = {
             },
         }
     },
+    ExtraZoneAbilityOptionsContainer = {
+        title = L.ExtraZoneAbilityTitle,
+        desc = L.ExtraZoneAbilityDesc,
+        childs = {
+            ["ExtraZoneAbilityEnable"] = {
+                type            = "checkbox",
+                name            = L.ExtraZoneAbilityEnable,
+                value           = "ExtraZoneAbilityEnable",
+                callback        = false,
+            },
+            ["ExtraZoneAbilityArt"] = {
+                type        = "dropdown",
+                setting     = T.ExtraZoneAbilityArts,
+                name        = L.ExtraZoneAbilityArt,
+                IsSelected  = function(id) return id == Addon:GetValue("ExtraZoneAbilityArt", nil, true) end,
+                OnSelect    = function(id)
+                    Addon:SaveSetting("ExtraZoneAbilityArt", id, true)
+                    if Addon.UpdateExtraZoneArt then
+                        Addon:UpdateExtraZoneArt()
+                    end
+                end,
+                showNew     = false,
+                OnEnter     = function(id)
+                    if Addon.UpdateExtraZoneArt then
+                        Addon:UpdateExtraZoneArt(id)
+                    end
+                end,
+                OnClose     = function()
+                    if Addon.UpdateExtraZoneArt then
+                        Addon:UpdateExtraZoneArt()
+                    end
+                    HUIDropdownMixin:RefreshAllPreview()
+                end,
+            },
+        }
+    },
     NormalOptionsContainer = {
         title = L.NormalTitle,
         desc = L.NormalDesc,

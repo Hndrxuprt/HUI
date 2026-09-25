@@ -792,6 +792,7 @@ local hardReload = {
     ["UseWALoopColor"] = true,
     ["DesaturateWALoop"] = true,
     ["AddWAMask"] = true,
+    ["ExtraZoneAbilityEnable"] = true,
 }
 
 local liveRefresh = {
@@ -893,6 +894,8 @@ local liveRefresh = {
     ["ColorizedCooldownFont"] = true,
 
     ["ColorizedAuraFont"] = true,
+
+    ["ExtraZoneAbilityArt"] = true,
 }
 function Addon:GetCurrentProfile()
     return HUIProfilesMixin:GetPlayerProfile()

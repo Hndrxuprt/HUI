@@ -90,6 +90,13 @@ local function BuildMenuList()
                             or "layout"
                 })
             end
+            table.insert(element.buttons, {
+                label = "ExtraZoneAbility",
+                name = L.ExtraZoneAbility,
+                category = 2,
+                index = #ActionBarNames + 1,
+                layout = "layoutExtraZone"
+            })
         elseif element.name == "Cooldown Manager" then
             for index, frame in ipairs(CDMFrames) do
                 table.insert(element.buttons, {
@@ -313,7 +320,7 @@ function HUI_BarsListMixin:OnShow()
     end
 
     local label = selected.label
-    local isNonFrame = label == nil or label == "GlobalSettings" or label == "Modules"
+    local isNonFrame = label == nil or label == "GlobalSettings" or label == "Modules" or label == "ExtraZoneAbility"
     if not isNonFrame and not _G[label] then
         return
     end
