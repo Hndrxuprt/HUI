@@ -509,8 +509,12 @@ function Addon:UpdateExtraZoneArt(previewValue)
     if ExtraActionButton1 and ExtraActionButton1.style then
         table.insert(styles, ExtraActionButton1.style)
     end
-    if ZoneAbilityFrame and ZoneAbilityFrame.Style then
-        table.insert(styles, ZoneAbilityFrame.Style)
+    if ZoneAbilityFrame and ZoneAbilityFrame.SpellButtonContainer then
+        for button in ZoneAbilityFrame.SpellButtonContainer:EnumerateActive() do
+            if button.__huiArt then
+                table.insert(styles, button.__huiArt)
+            end
+        end
     end
 
     for _, style in ipairs(styles) do
@@ -527,6 +531,9 @@ function Addon:UpdateExtraZoneArt(previewValue)
             style:ClearAllPoints()
             style:SetPoint("CENTER", style:GetParent(), "CENTER", 0, 0)
             style:Hide()
+        end
+        if ZoneAbilityFrame and ZoneAbilityFrame.Style then
+            ZoneAbilityFrame.Style:Hide()
         end
     elseif entry.default then
         for _, style in ipairs(styles) do
@@ -552,6 +559,9 @@ function Addon:UpdateExtraZoneArt(previewValue)
                     style:SetSize(entry.size[1], entry.size[2])
                 end
             end)
+        end
+        if ZoneAbilityFrame and ZoneAbilityFrame.Style then
+            ZoneAbilityFrame.Style:Hide()
         end
     end
 end
@@ -618,6 +628,11 @@ function Addon:UpdateZoneAbilityButtons()
         end
         if not button.NormalTexture then
             button.NormalTexture = button:CreateTexture(nil, "OVERLAY")
+        end
+        if not button.__huiArt then
+            button.__huiArt = button:CreateTexture(nil, "OVERLAY", nil, 1)
+            button.__huiArt.__huiOrigLayer = "OVERLAY"
+            button.__huiArt.__huiOrigSubLevel = 1
         end
 
         Addon:UpdateNormalTexture(button, false)

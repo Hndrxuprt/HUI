@@ -2,7 +2,7 @@
 ## Title: |cFF30D1FFHUI|r (ex-ActionBarsEnhanced)
 ## IconTexture: Interface\AddOns\HUI\assets\icon
 ## Category: Action Bars
-## Version: 3.4.1
+## Version: 3.4.2
 ## SavedVariables: HUIDB
 ## SavedVariablesPerCharacter: HUI_FAKE_AURAS
 ## Notes: Modular UI framework by Hndrxuprt
