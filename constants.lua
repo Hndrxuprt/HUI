@@ -69,6 +69,100 @@ Addon.RacialSpellsMap = {
     [91] = {1237885}, --Haranir
 }
 Addon.RacialsSort = {1,2,3,4,5,6,7,8,9,10,11,22,24,27,28,29,30,31,32,34,35,36,37,52,84,86}
+Addon.PotionsData = {
+    DPS = {
+        spellCategory = 4,
+        cauldron = {
+            t1 = {274763, 245903, 245897, 245900, 245905, 245911},
+            t2 = {274764, 245902, 245898, 274765, 245901, 245904, 245910},
+        },
+        regular = {
+            t1 = {271886, 241289, 241309, 271889, 241297, 241295, 241293},
+            t2 = {271887, 241288, 241308, 271890, 241296, 241294, 241292},
+        },
+    },
+    Heal = {
+        spellCategory = 30,
+        cauldron = {
+            t1 = {},
+            t2 = {},
+        },
+        regular = {
+            t1 = {271883, 241305},
+            t2 = {271884, 241304},
+        },
+    },
+    Mana = {
+        spellCategory = 4,
+        cauldron = {
+            t1 = {245916},
+            t2 = {245917},
+        },
+        regular = {
+            t1 = {241301},
+            t2 = {241300},
+        },
+    },
+}
+Addon.PotionKindMap = {
+    [274764] = "LiquidLuster", [274763] = "LiquidLuster", [271886] = "LiquidLuster", [271887] = "LiquidLuster",
+    [245902] = "PotionOfRecklessness", [245903] = "PotionOfRecklessness", [241289] = "PotionOfRecklessness", [241288] = "PotionOfRecklessness",
+    [245898] = "LightPotential", [245897] = "LightPotential", [241309] = "LightPotential", [241308] = "LightPotential",
+    [274765] = "AlluringNostrum", [271889] = "AlluringNostrum", [271890] = "AlluringNostrum",
+    [245901] = "Zealotry", [245900] = "Zealotry", [241297] = "Zealotry", [241296] = "Zealotry",
+    [245904] = "DevouredDreams", [245905] = "DevouredDreams", [241295] = "DevouredDreams", [241294] = "DevouredDreams",
+    [245910] = "RampantAbandon", [245911] = "RampantAbandon", [241293] = "RampantAbandon", [241292] = "RampantAbandon",
+    [245918] = "HealthPotion", [245919] = "HealthPotion", [241305] = "HealthPotion", [241304] = "HealthPotion",
+    [271883] = "ConcentratedHealthPotion", [271884] = "ConcentratedHealthPotion",
+    [245916] = "ManaPotion", [245917] = "ManaPotion", [241301] = "ManaPotion", [241300] = "ManaPotion",
+}
+Addon.PotionKindOrder = {
+    DPS = {"LiquidLuster", "PotionOfRecklessness", "LightPotential", "AlluringNostrum", "Zealotry", "DevouredDreams", "RampantAbandon"},
+    Heal = {"HealthPotion", "ConcentratedHealthPotion"},
+    Mana = {"ManaPotion"},
+}
+Addon.PotionKindReps = {
+    LiquidLuster = 274764,
+    PotionOfRecklessness = 245902,
+    LightPotential = 245898,
+    AlluringNostrum = 274765,
+    Zealotry = 245901,
+    DevouredDreams = 245904,
+    RampantAbandon = 245910,
+    HealthPotion = 245918,
+    ConcentratedHealthPotion = 271884,
+    ManaPotion = 245916,
+}
+Addon.Potions = {
+    byItemID = {},
+    byType = {},
+    byCategory = {},
+}
+do
+    local sources = {"cauldron", "regular"}
+    local qualities = {"t2", "t1"}
+    for potType, data in pairs(Addon.PotionsData) do
+        local items = {}
+        for _, source in ipairs(sources) do
+            for qualityIndex, quality in ipairs(qualities) do
+                for _, itemID in ipairs(data[source][quality]) do
+                    tinsert(items, itemID)
+                    Addon.Potions.byItemID[itemID] = {
+                        potType = potType,
+                        source = source,
+                        quality = qualityIndex,
+                        kind = Addon.PotionKindMap[itemID],
+                    }
+                end
+            end
+        end
+        Addon.Potions.byType[potType] = {
+            spellCategory = data.spellCategory,
+            items = items,
+        }
+        Addon.Potions.byCategory[data.spellCategory] = potType
+    end
+end
 Addon.AttachPoints = {
     [1] = "TOPLEFT",
     [2] = "TOP",
@@ -567,6 +661,10 @@ Addon.Defaults = {
 
     CDMCustomTrackTrink1 = false,
     CDMCustomTrackTrink2 = false,
+
+    CDMCustomTrackPotionDps = false,
+    CDMCustomTrackPotionHeal = false,
+    CDMCustomTrackPotionMana = false,
 
     UseCDMCustomIconPadding = false,
     CDMCustomIconPadding = 2,

@@ -175,6 +175,154 @@ function HUI_CDMCustomItemMixin:SetItemID(itemID)
     self:InvalidateAura()
 end
 
+function HUI_CDMCustomItemMixin:SetPotionType(potType)
+    self.slotID = nil
+    self.itemID = nil
+    self.spellID = nil
+    self.baseSpellID = nil
+    self.overrideID = nil
+    self.count = 0
+    self.potType = potType
+    self:UpdatePotionItem()
+    self:InvalidateAura()
+end
+
+function HUI_CDMCustomItemMixin:GetLastUsedPotion()
+    if self.type ~= "potion" or not self.potType then return nil end
+    local parentFrame = self.parentName and _G[self.parentName]
+    if not parentFrame or not parentFrame.lastUsedPotions then return nil end
+    return parentFrame.lastUsedPotions[self.potType]
+end
+
+function HUI_CDMCustomItemMixin:FindAvailablePotion(items, kindFilter)
+    for _, id in ipairs(items) do
+        if not kindFilter or (Addon.Potions.byItemID[id] and Addon.Potions.byItemID[id].kind == kindFilter) then
+            local count = C_Item.GetItemCount(id, nil, true) or 0
+            if count > 0 then
+                return id
+            end
+        end
+    end
+    return nil
+end
+
+function HUI_CDMCustomItemMixin:FindAvailablePotionWithinRank(items, kindKey)
+    local index = 1
+    while index <= #items do
+        local segInfo = Addon.Potions.byItemID[items[index]]
+        local segSource = segInfo and segInfo.source
+        local segQuality = segInfo and segInfo.quality
+        local segEnd = index
+        while segEnd < #items do
+            local nextInfo = Addon.Potions.byItemID[items[segEnd + 1]]
+            if not nextInfo or nextInfo.source ~= segSource or nextInfo.quality ~= segQuality then
+                break
+            end
+            segEnd = segEnd + 1
+        end
+        for i = index, segEnd do
+            if Addon.Potions.byItemID[items[i]].kind == kindKey then
+                local count = C_Item.GetItemCount(items[i], nil, true) or 0
+                if count > 0 then
+                    return items[i]
+                end
+            end
+        end
+        for i = index, segEnd do
+            local count = C_Item.GetItemCount(items[i], nil, true) or 0
+            if count > 0 then
+                return items[i]
+            end
+        end
+        index = segEnd + 1
+    end
+    return nil
+end
+
+function HUI_CDMCustomItemMixin:UpdatePotionItem()
+    if self.type ~= "potion" then return end
+    local potInfo = Addon.Potions.byType[self.potType]
+    if not potInfo then return end
+
+    local kindKey = Addon:GetValue("CDMCustomPotionKind_"..self.potType, nil, self.parentName)
+    local priorityType = Addon:GetValue("CDMCustomPotionPriorityType", nil, self.parentName) or 1
+
+    local itemID
+    if kindKey then
+        if priorityType == 3 then
+            itemID = self:FindAvailablePotion(potInfo.items, kindKey)
+        elseif priorityType == 2 then
+            itemID = self:FindAvailablePotion(potInfo.items, kindKey) or self:FindAvailablePotion(potInfo.items)
+        else
+            itemID = self:FindAvailablePotionWithinRank(potInfo.items, kindKey)
+        end
+    else
+        itemID = self:FindAvailablePotion(potInfo.items)
+    end
+    if not itemID then
+        if kindKey and priorityType == 3 then
+            for _, id in ipairs(potInfo.items) do
+                if Addon.Potions.byItemID[id] and Addon.Potions.byItemID[id].kind == kindKey then
+                    itemID = id
+                    break
+                end
+            end
+        end
+        if not itemID then
+            itemID = potInfo.items[1]
+        end
+    end
+
+    self.itemID = itemID
+    if itemID then
+        local spellName, spellID = C_Item.GetItemSpell(itemID)
+        self.spellID = spellID
+    else
+        self.spellID = nil
+    end
+end
+
+function HUI_CDMCustomItemMixin:OnPotionUsed(category, usedItemID, usedSpellID)
+    if self.type ~= "potion" then return end
+    local potInfo = Addon.Potions.byType[self.potType]
+    if not potInfo or potInfo.spellCategory ~= category then return end
+
+    if usedItemID then
+        local usedPotInfo = Addon.Potions.byItemID[usedItemID]
+        if usedPotInfo and usedPotInfo.potType == self.potType then
+            local parentFrame = self.parentName and _G[self.parentName]
+            if parentFrame and parentFrame.lastUsedPotions then
+                local lastUsed = parentFrame.lastUsedPotions[self.potType] or {}
+                if lastUsed.spellID ~= usedSpellID then
+                    self.__auraFilterDirty = true
+                end
+                lastUsed.itemID = usedItemID
+                lastUsed.spellID = usedSpellID
+                parentFrame.lastUsedPotions[self.potType] = lastUsed
+            end
+        end
+    end
+
+    self:UpdatePotionItem()
+    self:RefreshData()
+end
+
+function HUI_CDMCustomItemMixin:OnPotionCountChanged()
+    if self.type ~= "potion" then return end
+    self:UpdatePotionItem()
+    self:RefreshData()
+end
+
+function HUI_CDMCustomItemMixin:SchedulePotionUpdate()
+    if self.type ~= "potion" or self.__potionUpdatePending then return end
+    self.__potionUpdatePending = true
+    RunNextFrame(function()
+        self.__potionUpdatePending = nil
+        self:UpdatePotionItem()
+        self:RefreshData()
+    end)
+end
+
 function HUI_CDMCustomItemMixin:GetSpellID()
     if self.baseSpellID then
         return self.baseSpellID
@@ -184,7 +332,11 @@ function HUI_CDMCustomItemMixin:GetSpellID()
 end
 
 function HUI_CDMCustomItemMixin:GetCooldownInfo()
-    if self.type == "item" then
+    if self.type == "item" or self.type == "potion" then
+        if not self.itemID then
+            self.cooldownInfo = nil
+            return self.cooldownInfo
+        end
         local start, duration, enable = C_Item.GetItemCooldown(self.itemID)
         local cooldownInfo = self.__cooldownInfoBuf
         if not cooldownInfo then
@@ -275,7 +427,7 @@ end
 
 function HUI_CDMCustomItemMixin:RefreshIconDesaturation(desaturated)
     local icon = self.Icon.Icon or self.Icon
-    if self.type == "item" then
+    if self.type == "item" or self.type == "potion" then
         if self.count == 0 or self.count == "" then
             desaturated = true
         else
@@ -323,7 +475,7 @@ end
 function HUI_CDMCustomItemMixin:RefreshCount()
     local applications = self.Icon.Applications or self.Applications
     local count = 0
-    if self.type == "item" and self.itemID then
+    if (self.type == "item" or self.type == "potion") and self.itemID then
         count = C_Item.GetItemCount(self.itemID, nil, true) or 0
     elseif self.type == "spell" then
         if not self.spellID then return end
@@ -669,7 +821,7 @@ function HUI_CDMCustomItemMixin:RefreshVisibility()
     end
 
     local newShouldBeVisible
-    if Addon:GetValue("CDMCustomHideEmpty", nil, self.parentName) and self.type == "item" then
+    if Addon:GetValue("CDMCustomHideEmpty", nil, self.parentName) and (self.type == "item" or self.type == "potion") then
         if not self.isOnAuraTimer and not self.AuraSet and self.count == 0 then
             newIsActive = false
             newShouldBeVisible = false
@@ -805,6 +957,16 @@ function HUI_CDMCustomItemMixin:InvalidateAura()
 end
 
 function HUI_CDMCustomItemMixin:GetRealAura()
+    if self.type == "potion" then
+        local lastUsed = self:GetLastUsedPotion()
+        if not lastUsed or not lastUsed.spellID then return nil end
+        self.__potionAuraBuf = self.__potionAuraBuf or {}
+        if self.__potionAuraBuf[1] ~= lastUsed.spellID then
+            self.__potionAuraBuf[1] = lastUsed.spellID
+            self.__auraFilterDirty = true
+        end
+        return self.__potionAuraBuf
+    end
     if not self.spellID then return end
 
     if self.__hasAuraLink == nil then
@@ -1134,6 +1296,7 @@ function HUI_CDMCustomFrameMixin:OnLoad()
         itemFrame.itemID = nil
         itemFrame.spellID = nil
         itemFrame.baseSpellID = nil
+        itemFrame.potType = nil
         itemFrame.count = nil
         itemFrame.isOnAuraTimer = nil
         itemFrame.isOnActualCooldown = nil
@@ -1163,7 +1326,7 @@ function HUI_CDMCustomFrameMixin:OnLoad()
 
     self:ResetIndexes()
     self.__pendingItemLoads = {}
-
+    self.lastUsedPotions = {}
     self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.EndOrderChange", self.OnCustomItemListReorderEnded)
     self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.ItemAdded", self.OnCustomItemListItemUpdate)
     self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.ItemRemoved", self.OnCustomItemListItemUpdate)
@@ -1255,6 +1418,8 @@ function HUI_CDMCustomFrameMixin:IndexItemFrame(itemFrame)
         if itemFrame.spellID then self:AddToIndex(self.__spellIndex, itemFrame.spellID, itemFrame) end
         if itemFrame.overrideID then self:AddToIndex(self.__spellIndex, itemFrame.overrideID, itemFrame) end
         table.insert(self.__allItemItems, itemFrame)
+    elseif itemFrame.type == "potion" then
+        table.insert(self.__allPotionItems, itemFrame)
     end
 end
 
@@ -1277,6 +1442,7 @@ function HUI_CDMCustomFrameMixin:ResetIndexes()
     self.__rangeIndex = {}
     self.__allSpellItems = {}
     self.__allItemItems = {}
+    self.__allPotionItems = {}
     self.__dispatchSeen = self.__dispatchSeen or {}
 end
 
@@ -1411,6 +1577,7 @@ function HUI_CDMCustomFrameMixin:OnShow()
     self:RegisterEvent("COOLDOWN_VIEWER_SPELL_OVERRIDE_UPDATED")
     self:RegisterEvent("PLAYER_REGEN_ENABLED")
     self:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player", "pet")
+    self:RegisterUnitEvent("UNIT_AURA", "player")
 end
 
 function HUI_CDMCustomFrameMixin:OnHide()
@@ -1560,7 +1727,7 @@ function HUI_CDMCustomFrameMixin:OnEvent(event, ...)
             itemFrame:RefreshData()
         end
     elseif event == "SPELL_UPDATE_COOLDOWN" then
-        local spellID, baseSpellID, category, startRecoveryCategory = ...
+        local spellID, baseSpellID, category, startRecoveryCategory, potionItemID = ...
         local seen = self.__dispatchSeen
         wipe(seen)
         local matched = false
@@ -1586,6 +1753,34 @@ function HUI_CDMCustomFrameMixin:OnEvent(event, ...)
                     seen[itemFrame] = true
                     itemFrame:OnSpellUpdateCooldownEvent()
                 end
+            end
+            for _, itemFrame in ipairs(self.__allPotionItems) do
+                if not seen[itemFrame] then
+                    seen[itemFrame] = true
+                    itemFrame:OnSpellUpdateCooldownEvent()
+                end
+            end
+        end
+        if category and not issecretvalue(category) and Addon.Potions.byCategory[category] and #self.__allPotionItems > 0 then
+            local usedItemID
+            if potionItemID ~= nil and not issecretvalue(potionItemID) then
+                usedItemID = potionItemID
+            end
+            local usedSpellID
+            if spellID ~= nil and not issecretvalue(spellID) then
+                usedSpellID = spellID
+            end
+            if not usedItemID then
+                local lastSpellID, lastItemID = C_Spell.GetLastCategoryCooldownSource(category)
+                if lastItemID ~= nil and not issecretvalue(lastItemID) then
+                    usedItemID = lastItemID
+                    if not usedSpellID then
+                        usedSpellID = lastSpellID
+                    end
+                end
+            end
+            for _, itemFrame in ipairs(self.__allPotionItems) do
+                itemFrame:OnPotionUsed(category, usedItemID, usedSpellID)
             end
         end
         if startRecoveryCategory == 133 then
@@ -1654,6 +1849,14 @@ function HUI_CDMCustomFrameMixin:OnEvent(event, ...)
                 end
             end
         end
+        if #self.__allPotionItems > 0 then
+            local isPotionItem = (itemID ~= nil and not issecretvalue(itemID)) and Addon.Potions.byItemID[itemID] ~= nil
+            if isPotionItem or itemID == nil or issecretvalue(itemID) then
+                for _, itemFrame in ipairs(self.__allPotionItems) do
+                    itemFrame:OnPotionCountChanged()
+                end
+            end
+        end
     elseif event == "BAG_UPDATE_DELAYED" then
         for _, itemFrame in ipairs(self.__allItemItems) do
             if itemFrame.type == "item" then
@@ -1662,12 +1865,27 @@ function HUI_CDMCustomFrameMixin:OnEvent(event, ...)
                 itemFrame:RefreshVisibility()
             end
         end
+        for _, itemFrame in ipairs(self.__allPotionItems) do
+            itemFrame:OnPotionCountChanged()
+        end
     elseif event == "BAG_UPDATE_COOLDOWN" then
         for _, itemFrame in ipairs(self.__allItemItems) do
             if itemFrame.type == "item" then
                 itemFrame:RefreshSpellCooldownInfo()
                 itemFrame:RefreshCount()
                 itemFrame:RefreshVisibility()
+            end
+        end
+        for _, itemFrame in ipairs(self.__allPotionItems) do
+            itemFrame:RefreshSpellCooldownInfo()
+            itemFrame:RefreshCount()
+            itemFrame:RefreshVisibility()
+        end
+    elseif event == "UNIT_AURA" then
+        local unitTarget = ...
+        if unitTarget == "player" and #self.__allPotionItems > 0 then
+            for _, itemFrame in ipairs(self.__allPotionItems) do
+                itemFrame:SchedulePotionUpdate()
             end
         end
     elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" then
@@ -1696,6 +1914,9 @@ function HUI_CDMCustomFrameMixin:OnEvent(event, ...)
                 clearEncounterFlags(itemFrame)
             end
             for _, itemFrame in ipairs(self.__allItemItems) do
+                clearEncounterFlags(itemFrame)
+            end
+            for _, itemFrame in ipairs(self.__allPotionItems) do
                 clearEncounterFlags(itemFrame)
             end
         end
@@ -1946,6 +2167,24 @@ function HUI_CDMCustomFrameMixin:GetVisibleChildren()
                 isKnown = false
             end ]]
         end
+        if data.type == "potion" then
+            local potInfo = Addon.Potions.byType[data.potType]
+            isKnown = potInfo ~= nil
+            if potInfo then
+                for _, potItemID in ipairs(potInfo.items) do
+                    if not C_Item.IsItemDataCachedByID(potItemID) then
+                        C_Item.RequestLoadItemDataByID(potItemID)
+                        if not self.__pendingItemLoads[potItemID] then
+                            self.__pendingItemLoads[potItemID] = true
+                            Item:CreateFromItemID(potItemID):ContinueOnItemLoad(function()
+                                self.__pendingItemLoads[potItemID] = nil
+                                self:RefreshLayout()
+                            end)
+                        end
+                    end
+                end
+            end
+        end
         if isKnown then
             local item = self.itemPool:Acquire()
             item.layoutIndex = index
@@ -1954,7 +2193,9 @@ function HUI_CDMCustomFrameMixin:GetVisibleChildren()
                 self.hasSpellElement = true
             elseif data.type == "item" then
                 item:SetItemID(data.id)
-            elseif data.type == "slot" then                
+            elseif data.type == "potion" then
+                item:SetPotionType(data.potType)
+            elseif data.type == "slot" then
                 item:SetSlotID(data.id, slotItemID)
             end
             

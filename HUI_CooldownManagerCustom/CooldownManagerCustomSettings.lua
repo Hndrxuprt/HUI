@@ -67,10 +67,13 @@ end
 
 local function tblContains(tbl, item)
     for index, data in ipairs(tbl) do
-        if item.type == data.type and item.id == data.id then
+        if item.type == data.type and item.id ~= nil and item.id == data.id then
             return index
         end
         if item.type == data.type and (Addon:IsRacialSpell(item.id) and Addon:IsRacialSpell(data.id)) then
+            return index
+        end
+        if item.type == "potion" and data.type == "potion" and item.potType == data.potType then
             return index
         end
     end
@@ -132,6 +135,7 @@ function OptionsCDMCustomItemListMixin:OnLoad()
     self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.AddSpellByID", self.OnAddSpellByID)
     self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.AddItemBySlot", self.OnAddItemBySlot)
     self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.AddRacial", self.OnAddRacials)
+    self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.AddPotion", self.OnAddPotion)
     self:AddDynamicEventMethod(EventRegistry, "CooldownViewerSettings.BeginOrderChange", self.CDM_BeginOrderChange)
     
 
@@ -157,6 +161,30 @@ function OptionsCDMCustomItemListMixin:OnAddRacials(frameName, track)
     local newItem = {
         type = "spell",
         id = racialSpell
+    }
+
+    if track then
+        if not tblContains(self.itemList, newItem) then
+            table.insert(self.itemList, newItem)
+            self:OnShow()
+            EventRegistry:TriggerEvent("CDMCustomItemList.ItemAdded", self.itemList, self.frameName)
+        end
+    else
+        local index = tblContains(self.itemList, newItem)
+        if index then
+            table.remove(self.itemList, index)
+            self:OnShow()
+            EventRegistry:TriggerEvent("CDMCustomItemList.ItemRemoved", self.itemList, self.frameName)
+        end
+    end
+end
+function OptionsCDMCustomItemListMixin:OnAddPotion(frameName, potType, track)
+    if self.frameName ~= frameName then return end
+    if not Addon.Potions.byType[potType] then return end
+
+    local newItem = {
+        type = "potion",
+        potType = potType,
     }
 
     if track then
@@ -275,6 +303,23 @@ function OptionsCDMCustomItemListMixin:OnShow()
             item.itemID = data.id
             item.spellID = nil
             item.baseSpellID = data.baseID
+        elseif data.type == "potion" then
+            local potInfo = Addon.Potions.byType[data.potType]
+            item.itemID = potInfo and potInfo.items[1] or nil
+            item.spellID = nil
+            item.baseSpellID = nil
+            item.potType = data.potType
+            if item.itemID and not C_Item.IsItemDataCachedByID(item.itemID) then
+                self.__pendingItemLoads = self.__pendingItemLoads or {}
+                if not self.__pendingItemLoads[item.itemID] then
+                    self.__pendingItemLoads[item.itemID] = true
+                    C_Item.RequestLoadItemDataByID(item.itemID)
+                    Item:CreateFromItemID(item.itemID):ContinueOnItemLoad(function()
+                        self.__pendingItemLoads[item.itemID] = nil
+                        self:OnShow()
+                    end)
+                end
+            end
         elseif data.type == "slot" then
             local inventoryItem = C_TooltipInfo.GetInventoryItem("player", data.id)
             if not inventoryItem then break end
@@ -638,6 +683,9 @@ end
 function OptionsCDMCustomItemListMixin:OpenStagesSettings(item)
     local itemID = item:GetSpellID()
     local fakeAuraFrame = self.FakeAuraFrame
+    if fakeAuraFrame.PotionControls then
+        fakeAuraFrame.PotionControls:Hide()
+    end
     fakeAuraFrame.Label:SetText(L.SetStages)
     fakeAuraFrame.Desc:SetText(L.SetStagesDesc)
     fakeAuraFrame.Desc:Show()
@@ -693,6 +741,9 @@ local function SetupGridLayout(parent, itemList, columns)
 end
 
 function OptionsCDMCustomItemListMixin:OpenRacialSettings(item)
+    if self.FakeAuraFrame.PotionControls then
+        self.FakeAuraFrame.PotionControls:Hide()
+    end
     self.FakeAuraFrame.Label:SetText("Configure Racials")
     self.FakeAuraFrame.Label:SetPointsOffset(0, 75)
     self.FakeAuraFrame.Desc:Hide()
@@ -793,6 +844,159 @@ function OptionsCDMCustomItemListMixin:OpenRacialSettings(item)
         self.FakeAuraFrame:Hide()
         self:OnShow()
     end)
+end
+
+local function GetRegularPotionRep(kindKey)
+    local data = Addon.PotionsData.DPS
+    for _, quality in ipairs({"t2", "t1"}) do
+        for _, itemID in ipairs(data.regular[quality]) do
+            if Addon.PotionKindMap[itemID] == kindKey then
+                return itemID
+            end
+        end
+    end
+    return nil
+end
+
+local function GetPotionKindList()
+    local kinds = {}
+    kinds[1] = { key = nil, name = L.PotionKindDefault }
+    for i, kindKey in ipairs(Addon.PotionKindOrder.DPS) do
+        local entry
+        local rep = GetRegularPotionRep(kindKey) or Addon.PotionKindReps[kindKey]
+        if rep then
+            local name, _, quality = C_Item.GetItemInfo(rep)
+            local icon = C_Item.GetItemIconByID(rep)
+            if name and name ~= "" and icon then
+                local hex = quality and ITEM_QUALITY_COLORS[quality] and ITEM_QUALITY_COLORS[quality].hex or "|cffffffff"
+                local text = format("|T%d:16:16:0:0:64:64:4:60:4:60|t %s%s|r", icon, hex, name)
+                entry = { key = kindKey, name = text, itemID = rep }
+            end
+        end
+        if not entry then
+            entry = { key = kindKey, name = L["PotionKind"..kindKey] }
+        end
+        kinds[i + 1] = entry
+    end
+    return kinds
+end
+
+local function SetupPotionDropdown(dropdown, titleText, entries, isSelected, onSelect)
+    local menuGenerator = function(_, rootDescription)
+        rootDescription:CreateTitle(titleText)
+        for i = 1, #entries do
+            local entry = entries[i]
+            local radio = rootDescription:CreateRadio(entry.name, isSelected, onSelect, i)
+            if entry.itemID then
+                radio:SetTooltip(function(tooltip)
+                    tooltip:SetItemByID(entry.itemID)
+                end)
+            end
+        end
+    end
+    dropdown.Dropdown:SetupMenu(menuGenerator)
+    dropdown.IncrementButton:Hide()
+    dropdown.DecrementButton:Hide()
+end
+
+local function CreatePotionDropdown(parent, offsetY)
+    local name = parent:CreateFontString(nil, "ARTWORK", "ObjectiveTrackerFont14")
+    name:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, offsetY - 7)
+    name:SetWidth(160)
+    name:SetJustifyH("LEFT")
+    name:SetTextColor(0.792, 0.776, 0.741)
+
+    local dropdown = CreateFrame("Frame", nil, parent, "Metal2DropdownWithSteppersAndLabelTemplate")
+    dropdown:SetSize(300, 26)
+    dropdown:SetPoint("LEFT", name, "RIGHT", 6, 0)
+
+    return dropdown, name
+end
+
+function OptionsCDMCustomItemListMixin:OpenPotionSettings(item)
+    local fakeAuraFrame = self.FakeAuraFrame
+    fakeAuraFrame.Label:SetText(L.PotionSettings)
+    fakeAuraFrame.Label:SetPointsOffset(0, 75)
+    fakeAuraFrame.Desc:Hide()
+    fakeAuraFrame.EditBox:Hide()
+    fakeAuraFrame.Dropdown:Hide()
+
+    local frameName = self.frameName
+    local potType = item.potType
+
+    for _, rep in pairs(Addon.PotionKindReps) do
+        if not C_Item.IsItemDataCachedByID(rep) then
+            C_Item.RequestLoadItemDataByID(rep)
+        end
+    end
+    for _, quality in ipairs({"t2", "t1"}) do
+        for _, rep in ipairs(Addon.PotionsData.DPS.regular[quality]) do
+            if not C_Item.IsItemDataCachedByID(rep) then
+                C_Item.RequestLoadItemDataByID(rep)
+            end
+        end
+    end
+
+    if not fakeAuraFrame.PotionControls then
+        local controls = CreateFrame("Frame", nil, fakeAuraFrame)
+        controls:SetPoint("TOPLEFT", fakeAuraFrame, "TOPLEFT", 60, -60)
+        controls:SetSize(480, 130)
+        fakeAuraFrame.PotionControls = controls
+
+        local kindDropdown, kindName = CreatePotionDropdown(controls, -6)
+        kindName:SetText(L.CDMCustomPotionDpsKindTitle)
+        controls.KindDropdown = kindDropdown
+
+        local typeDropdown, typeName = CreatePotionDropdown(controls, -50)
+        typeName:SetText(L.CDMCustomPotionPriorityTypeTitle)
+        controls.TypeDropdown = typeDropdown
+    end
+
+    local controls = fakeAuraFrame.PotionControls
+    controls:Show()
+
+    local kinds = GetPotionKindList()
+    SetupPotionDropdown(controls.KindDropdown, L.CDMCustomPotionDpsKindTitle, kinds,
+        function(id)
+            local entry = kinds[id]
+            return (Addon:GetValue("CDMCustomPotionKind_"..potType, nil, frameName) or false) == (entry and entry.key or false)
+        end,
+        function(id)
+            local entry = kinds[id]
+            Addon:SaveSetting("CDMCustomPotionKind_"..potType, entry and entry.key or nil, frameName)
+            EventRegistry:TriggerEvent("CDMCustomItemList.UpdateFrame", frameName)
+        end
+    )
+
+    local priorityTypes = {
+        { id = 1, name = L.PotionPriorityWithinRank },
+        { id = 2, name = L.PotionPriorityAcrossRanks },
+        { id = 3, name = L.PotionPriorityStrict },
+    }
+    SetupPotionDropdown(controls.TypeDropdown, L.CDMCustomPotionPriorityTypeTitle, priorityTypes,
+        function(id)
+            return id == (Addon:GetValue("CDMCustomPotionPriorityType", nil, frameName) or 1)
+        end,
+        function(id)
+            Addon:SaveSetting("CDMCustomPotionPriorityType", id, frameName)
+            EventRegistry:TriggerEvent("CDMCustomItemList.UpdateFrame", frameName)
+        end
+    )
+
+    fakeAuraFrame.Button:SetPointsOffset(0, -80)
+    fakeAuraFrame.Button:SetScript("OnClick", function()
+        controls:Hide()
+
+        fakeAuraFrame.Button:SetPointsOffset(0, -60)
+        fakeAuraFrame.Label:SetPointsOffset(0, 60)
+
+        EventRegistry:TriggerEvent("CDMCustomItemList.UpdateFrame", frameName)
+
+        fakeAuraFrame:Hide()
+        self:OnShow()
+    end)
+
+    fakeAuraFrame:Show()
 end
 
 
@@ -978,8 +1182,10 @@ function OptionsCDMCustomItemMixin:OnEnter()
     tooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT")
     if self.itemID then
         tooltip:SetItemByID(self.itemID)
-    else
+    elseif self.spellID then
         tooltip:SetSpellByID(self.spellID, false)
+    else
+        return
     end
     tooltip:Show()
 end
@@ -1279,6 +1485,11 @@ function OptionsCDMCustomItemMixin:DisplayContextMenu()
         if self:IsRacialSpell() then
             rootDescription:CreateButton("Racial Settings", function()
                 self.parentFrame:OpenRacialSettings(self)
+            end)
+        end
+        if self.type == "potion" and self.potType == "DPS" then
+            rootDescription:CreateButton(L.PotionSettings, function()
+                self.parentFrame:OpenPotionSettings(self)
             end)
         end
         --[[

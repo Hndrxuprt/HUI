@@ -2190,6 +2190,33 @@ Addon.config.containers = {
                     EventRegistry:TriggerEvent("CDMCustomItemList.AddRacial", frameLabel, checked)
                 end
             },
+            ["CDMCustomTrackPotionDps"] = {
+                type            = "checkbox",
+                name            = L.CDMCustomFrameTrackPotionDps,
+                value           = "CDMCustomTrackPotionDps",
+                callback        = function(checked)
+                    local frameLabel = HUI_BarsListMixin:GetFrameLebel()
+                    EventRegistry:TriggerEvent("CDMCustomItemList.AddPotion", frameLabel, "DPS", checked)
+                end
+            },
+            ["CDMCustomTrackPotionHeal"] = {
+                type            = "checkbox",
+                name            = L.CDMCustomFrameTrackPotionHeal,
+                value           = "CDMCustomTrackPotionHeal",
+                callback        = function(checked)
+                    local frameLabel = HUI_BarsListMixin:GetFrameLebel()
+                    EventRegistry:TriggerEvent("CDMCustomItemList.AddPotion", frameLabel, "Heal", checked)
+                end
+            },
+            ["CDMCustomTrackPotionMana"] = {
+                type            = "checkbox",
+                name            = L.CDMCustomFrameTrackPotionMana,
+                value           = "CDMCustomTrackPotionMana",
+                callback        = function(checked)
+                    local frameLabel = HUI_BarsListMixin:GetFrameLebel()
+                    EventRegistry:TriggerEvent("CDMCustomItemList.AddPotion", frameLabel, "Mana", checked)
+                end
+            },
             ["CDMCustomHideWhenEmpty"] = {
                 type            = "checkbox",
                 name            = L.CDMCustomFrameHideWhen0,
