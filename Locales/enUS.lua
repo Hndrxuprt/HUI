@@ -561,6 +561,13 @@ L.ConfigureAura = "Configure Aura"
 L.FakeAuraTimer = "Fake Aura Timer:"
 L.RealAuraID = "Aura SpellID"
 
+L.AuraUnitTitle = "Aura Unit"
+L.AuraUnitPlayer = "Player"
+L.AuraUnitTarget = "Target"
+L.AuraTypeTitle = "Aura Type"
+L.AuraTypeHelpful = "Helpful"
+L.AuraTypeHarmful = "Harmful"
+
 L.LockedInCombat = "Settings are locked in combat"
 
 -- ==========================================

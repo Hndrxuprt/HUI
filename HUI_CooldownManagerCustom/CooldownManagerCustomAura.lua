@@ -8,6 +8,43 @@ local ElemBlastSpellIDs = {
 	[173183] = true,
 }
 
+local auraUnitByOverrideID = {
+	[1] = "player",
+	[2] = "target",
+}
+local auraTypeByOverrideID = {
+	[1] = "HELPFUL",
+	[2] = "HARMFUL",
+}
+
+function HUI_CDMCustomAuraMixin:GetAuraUnitOverride(spellID)
+	local frameIndex = self:GetFrameIndexByName(self.frameName)
+	local profileTable = self:GetProfileTable()
+	if profileTable["CDMCustomFrames"] then
+		local frameTbl = profileTable["CDMCustomFrames"][frameIndex]
+		if frameTbl then
+			Addon.MigrateAuraOverrides(frameTbl)
+			if frameTbl.auraUnits then
+				return auraUnitByOverrideID[frameTbl.auraUnits[spellID]]
+			end
+		end
+	end
+end
+
+function HUI_CDMCustomAuraMixin:GetAuraTypeOverride(spellID)
+	local frameIndex = self:GetFrameIndexByName(self.frameName)
+	local profileTable = self:GetProfileTable()
+	if profileTable["CDMCustomFrames"] then
+		local frameTbl = profileTable["CDMCustomFrames"][frameIndex]
+		if frameTbl then
+			Addon.MigrateAuraOverrides(frameTbl)
+			if frameTbl.auraTypes then
+				return auraTypeByOverrideID[frameTbl.auraTypes[spellID]]
+			end
+		end
+	end
+end
+
 function HUI_CDMCustomAuraMixin:GetProfileTable()
 	return Addon.CurrentProfileTbl or Addon:GetCurrentProfileTable()
 end
@@ -43,6 +80,8 @@ function HUI_CDMCustomAuraMixin:OnLoad()
 	self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.EndOrderChange", self.OnCustomItemListReorderEnded)
 	self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.ItemAdded", self.OnCustomItemListItemUpdate)
 	self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.ItemRemoved", self.OnCustomItemListItemUpdate)
+	self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.AuraUnitChanged", self.OnAuraOverrideChanged)
+	self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.AuraTypeChanged", self.OnAuraOverrideChanged)
 	--[[
 	self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.AuraSoundChanged", self.OnAuraSoundChanged)
 	--]]
@@ -173,8 +212,7 @@ function HUI_CDMCustomAuraMixin:UpdateAuraContainerUnit()
 	local spellID = self.trackedSpellIDs and self.trackedSpellIDs[1]
 	local auraUnit = "player"
 	if spellID then
-		local tbl = Addon.SPELLID_TO_AURASPELLID[spellID]
-		auraUnit = (tbl and tbl.auraUnit) or (C_Spell.IsSpellHelpful(spellID) and "player" or "target")
+		auraUnit = self:GetAuraUnitForSpell(spellID)
 	end
 
 	container:SetUnit(auraUnit)
@@ -191,13 +229,22 @@ function HUI_CDMCustomAuraMixin:GetAuraFilterString(spellID)
 		return "HELPFUL"
 	end
 
-	local tbl = Addon.SPELLID_TO_AURASPELLID[spellID]
-	local auraUnit = (tbl and tbl.auraUnit) or (C_Spell.IsSpellHelpful(spellID) and "player" or "target")
+	local auraType = self:GetAuraTypeOverride(spellID)
+	if auraType then
+		return auraType == "HELPFUL" and "HELPFUL" or "HARMFUL|PLAYER"
+	end
+
+	local auraUnit = self:GetAuraUnitForSpell(spellID)
 
 	return auraUnit == "player" and "HELPFUL" or "HARMFUL|PLAYER"
 end
 
 function HUI_CDMCustomAuraMixin:GetAuraUnitForSpell(spellID)
+	local override = self:GetAuraUnitOverride(spellID)
+	if override then
+		return override
+	end
+
 	local tbl = Addon.SPELLID_TO_AURASPELLID[spellID]
 	return (tbl and tbl.auraUnit) or (C_Spell.IsSpellHelpful(spellID) and "player" or "target")
 end
@@ -288,6 +335,35 @@ function HUI_CDMCustomAuraMixin:UnregisterAllAuraSounds()
 	for spellID in pairs(self.auraSoundIDs or {}) do
 		self:UnregisterAuraSounds(spellID)
 	end
+end
+
+function HUI_CDMCustomAuraMixin:OnAuraOverrideChanged(spellID)
+	if not self.AuraContainer then return end
+
+	local isTracked = false
+	for _, trackedSpellID in ipairs(self.trackedSpellIDs or {}) do
+		if trackedSpellID == spellID then
+			isTracked = true
+			break
+		end
+	end
+	if not isTracked then return end
+
+	self:UpdateAuraContainerUnit()
+
+	if self.useFixedSlots then
+		for slotIndex = 1, self.auraSlotCount or 0 do
+			self.AuraContainer:SetAuraSlotFilterString("aura" .. slotIndex,
+				self:GetAuraFilterString(self.trackedSpellIDs[slotIndex]))
+		end
+	else
+		for groupIndex = 1, self.auraGroupCount or 0 do
+			self.AuraContainer:SetAuraGroupFilterString("aura" .. groupIndex,
+				self:GetAuraFilterString(self.trackedSpellIDs[groupIndex]))
+		end
+	end
+
+	self.AuraContainer:UpdateAllAuras()
 end
 
 function HUI_CDMCustomAuraMixin:OnAuraSoundChanged(itemID, triggerID, soundName, frameName)

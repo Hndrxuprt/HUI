@@ -54,8 +54,8 @@ local function CreatePandemicElements(auraButton, frameName)
     iconRightGlow:Show()
     iconRightGlow.FX.Anim:Play()
 
-    auraButton.pandemicBorder.pandemicRegionIndex = auraButton:AddPandemicRegion(auraButton.pandemicBorder)
-    auraButton.pandemicGlow.pandemicRegionIndex = auraButton:AddPandemicRegion(auraButton.pandemicGlow)
+    auraButton.pandemicBorder.pandemicRegionIndex = auraButton:AddPandemicRegion(auraButton.pandemicBorder) or true
+    auraButton.pandemicGlow.pandemicRegionIndex = auraButton:AddPandemicRegion(auraButton.pandemicGlow) or true
 end
 
 HUI_CDMCustomAuraBarMixin = CreateFromMixins(HUI_CDMCustomAuraMixin)
@@ -293,8 +293,6 @@ function HUI_CDMCustomAuraBarMixin:ConfigureAuraButton(auraButton, spellID)
         auraButton.Statusbar.border = Addon.CreateBorder(auraButton.Statusbar, frameName)
         auraButton.Statusbar.border:SetFrameLevel(auraButton.Statusbar:GetFrameLevel() + 100)
 
-        self.auraStatusbar = auraButton.Statusbar
-
 		auraButton.Icon = auraButton:CreateTexture(nil, "OVERLAY")
 		auraButton.Icon:SetPoint("RIGHT", auraButton.Statusbar, "LEFT", -2, 0)
         
@@ -373,6 +371,8 @@ end
 
 function HUI_CDMCustomAuraBarMixin:CustomizeAuraButton(auraButton, spellID)
 	local frameName = self.frameName
+
+    self.auraStatusbar = auraButton.Statusbar
 
     HUI_CDMCustomFrameCustomized:ApplyBarSize(self, frameName)
     HUI_CDMCustomFrameCustomized:ApplyBarTexture(self, frameName, spellID)

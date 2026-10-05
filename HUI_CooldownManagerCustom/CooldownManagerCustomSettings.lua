@@ -259,6 +259,42 @@ function OptionsCDMCustomItemListMixin:OnAddItemByID(id, frameName)
         EventRegistry:TriggerEvent("CDMCustomItemList.ItemAdded", self.itemList, self.frameName)
     end
 end
+local function ResolveAuraUnitTypeIDs(spellID)
+    local tbl = Addon.SPELLID_TO_AURASPELLID[spellID]
+    local auraSpellID = (tbl and tbl.linkedSpellIDs and tbl.linkedSpellIDs[1]) or spellID
+    local auraTbl = Addon.SPELLID_TO_AURASPELLID[auraSpellID]
+    local auraUnit = (auraTbl and auraTbl.auraUnit) or (C_Spell.IsSpellHelpful(auraSpellID) and "player" or "target")
+    return auraUnit == "player" and 1 or 2, auraUnit == "player" and 1 or 2
+end
+
+function OptionsCDMCustomItemListMixin:ResolveAuraDefaultsForSpell(id, baseID)
+    local frameIndex = HUI_BarsListMixin:GetFrameIndex()
+    local profileName = HUIProfilesMixin:GetPlayerProfile()
+    local profileTable = Addon.P.profilesList[profileName]
+    if not profileTable["CDMCustomFrames"] then return end
+    local frameTbl = profileTable["CDMCustomFrames"][frameIndex]
+    if not frameTbl then return end
+
+    local frameName = HUI_BarsListMixin:GetFrameLebel()
+    local frame = frameName and _G[frameName]
+    local isAuraFrame = frame and (frame.template == "HUI_CDMCustomAuraFrame" or frame.template == "HUI_CDMCustomAuraBar")
+    local overrideKey = isAuraFrame and id or (baseID or id)
+
+    Addon.MigrateAuraOverrides(frameTbl)
+
+    if not frameTbl.auraUnits then
+        frameTbl.auraUnits = {}
+    end
+    if not frameTbl.auraTypes then
+        frameTbl.auraTypes = {}
+    end
+    if not frameTbl.auraUnits[overrideKey] or not frameTbl.auraTypes[overrideKey] then
+        local unitID, typeID = ResolveAuraUnitTypeIDs(overrideKey)
+        frameTbl.auraUnits[overrideKey] = frameTbl.auraUnits[overrideKey] or unitID
+        frameTbl.auraTypes[overrideKey] = frameTbl.auraTypes[overrideKey] or typeID
+    end
+end
+
 function OptionsCDMCustomItemListMixin:OnAddSpellByID(id, frameName)
     if self.frameName ~= frameName then return end
 
@@ -282,6 +318,7 @@ function OptionsCDMCustomItemListMixin:OnAddSpellByID(id, frameName)
 
     if not tblContains(self.itemList, newItem) then
         table.insert(self.itemList, newItem)
+        self:ResolveAuraDefaultsForSpell(id, baseID)
         self:OnShow()
         EventRegistry:TriggerEvent("CDMCustomItemList.ItemAdded", self.itemList, self.frameName)
     end
@@ -617,9 +654,97 @@ local function SetupDropdown(dropdown, itemID)
     dropdown.DecrementButton:Hide()
 end
 
+local function SetupUnitDropdown(dropdown, item)
+    local function IsSelected(id)
+        local override = item:GetAuraUnitOverride()
+        if not override then
+            override = ResolveAuraUnitTypeIDs(item:GetAuraOverrideKey())
+        end
+        return override == id
+    end
+    local function OnSelect(id)
+        item:SaveAuraUnitOverride(id)
+        EventRegistry:TriggerEvent("CDMCustomItemList.AuraUnitChanged", item:GetAuraOverrideKey(), id)
+    end
+    local menuGenerator = function(_, rootDescription)
+        rootDescription:CreateTitle(L.AuraUnitTitle)
+        local options = Addon.AuraUnitOptions
+        for i=1, #options do
+            local categoryName = options[i]
+            local categoryID = i
+            local radio = rootDescription:CreateRadio(categoryName, IsSelected, OnSelect, categoryID)
+        end
+    end
+    dropdown.Dropdown:SetupMenu(menuGenerator)
+    dropdown.IncrementButton:Hide()
+    dropdown.DecrementButton:Hide()
+end
+
+local function SetupAuraTypeDropdown(dropdown, item)
+    local function IsSelected(id)
+        local override = item:GetAuraTypeOverride()
+        if not override then
+            local _, typeID = ResolveAuraUnitTypeIDs(item:GetAuraOverrideKey())
+            override = typeID
+        end
+        return override == id
+    end
+    local function OnSelect(id)
+        item:SaveAuraTypeOverride(id)
+        EventRegistry:TriggerEvent("CDMCustomItemList.AuraTypeChanged", item:GetAuraOverrideKey(), id)
+    end
+    local menuGenerator = function(_, rootDescription)
+        rootDescription:CreateTitle(L.AuraTypeTitle)
+        local options = Addon.AuraTypeOptions
+        for i=1, #options do
+            local categoryName = options[i]
+            local categoryID = i
+            local radio = rootDescription:CreateRadio(categoryName, IsSelected, OnSelect, categoryID)
+        end
+    end
+    dropdown.Dropdown:SetupMenu(menuGenerator)
+    dropdown.IncrementButton:Hide()
+    dropdown.DecrementButton:Hide()
+end
+
 function OptionsCDMCustomItemListMixin:OpenAuraSettings(item)
     local itemID = item:GetSpellID()
-    self.AuraSettings.Label:SetText(L.ConfigureAura)
+    local auraSettings = self.AuraSettings
+    auraSettings.Label:SetText(L.ConfigureAura)
+
+    local isAuraFrame = item:IsAuraFrame()
+
+    local unitFrame = auraSettings.UnitContainer
+    unitFrame.Name:SetText(L.AuraUnitTitle)
+    unitFrame:ClearAllPoints()
+    if isAuraFrame then
+        unitFrame:SetPoint("TOPLEFT", auraSettings, "TOPLEFT", 0, -80)
+    else
+        unitFrame:SetPoint("TOPLEFT", auraSettings.AuraContainer, "BOTTOMLEFT", 0, 0)
+    end
+    SetupUnitDropdown(unitFrame.Dropdown, item)
+
+    local auraTypeFrame = auraSettings.AuraTypeContainer
+    auraTypeFrame.Name:SetText(L.AuraTypeTitle)
+    SetupAuraTypeDropdown(auraTypeFrame.Dropdown, item)
+
+    if isAuraFrame then
+        auraSettings.FakeAuraContainer:Hide()
+        auraSettings.AuraContainer:Hide()
+        auraSettings.Button:Show()
+        auraSettings.Button:SetScript("OnClick", function()
+            auraSettings:Hide()
+            self:OnShow()
+        end)
+        auraSettings:SetHeight(200)
+        auraSettings:Show()
+        return
+    end
+
+    auraSettings.FakeAuraContainer:Show()
+    auraSettings.AuraContainer:Show()
+    auraSettings.Button:Show()
+        auraSettings:SetHeight(240)
 
     local fakeAuraFrame = self.AuraSettings.FakeAuraContainer
     fakeAuraFrame.Name:SetText(L.FakeAuraTimer)
@@ -1203,10 +1328,44 @@ function OptionsCDMCustomItemMixin:GetSpellID()
     return self.spellID
 end
 
+function OptionsCDMCustomItemMixin:GetAuraOverrideKey()
+    if self:IsAuraFrame() then
+        return self.spellID
+    end
+    return self:GetSpellID()
+end
+
 function OptionsCDMCustomItemMixin:RemoveItem()
     local parentFrame = self.parentFrame
     local itemList = parentFrame.itemList
     local index = self.layoutIndex
+
+    local spellID = self:GetSpellID()
+    local overrideKey = self:GetAuraOverrideKey()
+    if spellID or overrideKey then
+        local frameIndex = HUI_BarsListMixin:GetFrameIndex()
+        local profileName = HUIProfilesMixin:GetPlayerProfile()
+        local profileTable = Addon.P.profilesList[profileName]
+        if profileTable["CDMCustomFrames"] then
+            local frameTbl = profileTable["CDMCustomFrames"][frameIndex]
+            if frameTbl then
+                if overrideKey then
+                    if frameTbl.auraUnits then frameTbl.auraUnits[overrideKey] = nil end
+                    if frameTbl.auraTypes then frameTbl.auraTypes[overrideKey] = nil end
+                    if frameTbl.color then frameTbl.color[overrideKey] = nil end
+                    if frameTbl.auraColor then frameTbl.auraColor[overrideKey] = nil end
+                    if frameTbl.sounds then frameTbl.sounds[overrideKey] = nil end
+                end
+                if spellID then
+                    if frameTbl.realAuras then frameTbl.realAuras[spellID] = nil end
+                    if frameTbl.fakeAuras then frameTbl.fakeAuras[spellID] = nil end
+                    if frameTbl.displayTypes then frameTbl.displayTypes[spellID] = nil end
+                    if frameTbl.stages then frameTbl.stages[spellID] = nil end
+                    if frameTbl.stageThresholds then frameTbl.stageThresholds[spellID] = nil end
+                end
+            end
+        end
+    end
 
     tremove(itemList, index)
     --tremove(Addon.trackedIDs, index)
@@ -1219,7 +1378,7 @@ function OptionsCDMCustomItemMixin:OnDragStart()
     self:BeginOrderChange()
 end
 function OptionsCDMCustomItemMixin:SaveCustomColor(newColor)
-    local itemID = self:GetSpellID()
+    local itemID = self:GetAuraOverrideKey()
     if not itemID then return end
     local frameIndex = HUI_BarsListMixin:GetFrameIndex()
     local profileName = HUIProfilesMixin:GetPlayerProfile()
@@ -1241,7 +1400,7 @@ function OptionsCDMCustomItemMixin:SaveCustomColor(newColor)
 end
 
 function OptionsCDMCustomItemMixin:GetCustomColor()
-    local itemID = self:GetSpellID()
+    local itemID = self:GetAuraOverrideKey()
     if not itemID then return end
     local frameIndex = HUI_BarsListMixin:GetFrameIndex()
     local profileName = HUIProfilesMixin:GetPlayerProfile()
@@ -1265,7 +1424,7 @@ end
 
 ---
 function OptionsCDMCustomItemMixin:SaveCustomAuraColor(newColor)
-    local itemID = self:GetSpellID()
+    local itemID = self:GetAuraOverrideKey()
     if not itemID then return end
     local frameIndex = HUI_BarsListMixin:GetFrameIndex()
     local profileName = HUIProfilesMixin:GetPlayerProfile()
@@ -1287,7 +1446,7 @@ function OptionsCDMCustomItemMixin:SaveCustomAuraColor(newColor)
 end
 
 function OptionsCDMCustomItemMixin:GetCustomAuraColor()
-    local itemID = self:GetSpellID()
+    local itemID = self:GetAuraOverrideKey()
     if not itemID then return end
     local frameIndex = HUI_BarsListMixin:GetFrameIndex()
     local profileName = HUIProfilesMixin:GetPlayerProfile()
@@ -1446,11 +1605,9 @@ function OptionsCDMCustomItemMixin:DisplayContextMenu()
     MenuUtil.CreateContextMenu(self, function(owner, rootDescription)
         rootDescription:SetTag("CDMCustom ContextMenu")
 
-        if not self:IsAuraFrame() then
-            rootDescription:CreateButton(L.ConfigureAura, function()
-                self.parentFrame:OpenAuraSettings(self)
-            end)
-        end
+        rootDescription:CreateButton(L.ConfigureAura, function()
+            self.parentFrame:OpenAuraSettings(self)
+        end)
         if self:IsBarFrame() then
             rootDescription:CreateButton(L.Stages, function()
                 self.parentFrame:OpenStagesSettings(self)
@@ -1633,6 +1790,78 @@ function OptionsCDMCustomItemMixin:GetRealAura()
         end
     end
     return Addon.SPELLID_TO_AURASPELLID[itemID] and Addon.SPELLID_TO_AURASPELLID[itemID].linkedSpellIDs or {}
+end
+
+function OptionsCDMCustomItemMixin:SaveAuraUnitOverride(unitID)
+    local itemID = self:GetAuraOverrideKey()
+    if not itemID or not unitID then return end
+    local frameIndex = HUI_BarsListMixin:GetFrameIndex()
+    local profileName = HUIProfilesMixin:GetPlayerProfile()
+    local profileTable = Addon.P.profilesList[profileName]
+
+    if profileTable["CDMCustomFrames"] then
+        local frameTbl = profileTable["CDMCustomFrames"][frameIndex]
+        if not frameTbl then return end
+        Addon.MigrateAuraOverrides(frameTbl)
+        if not frameTbl.auraUnits then
+            frameTbl.auraUnits = {}
+        end
+        frameTbl.auraUnits[itemID] = unitID
+    end
+end
+
+function OptionsCDMCustomItemMixin:GetAuraUnitOverride()
+    local itemID = self:GetAuraOverrideKey()
+    if not itemID then return end
+    local frameIndex = HUI_BarsListMixin:GetFrameIndex()
+    local profileName = HUIProfilesMixin:GetPlayerProfile()
+    local profileTable = Addon.P.profilesList[profileName]
+
+    if profileTable["CDMCustomFrames"] then
+        local frameTbl = profileTable["CDMCustomFrames"][frameIndex]
+        if frameTbl then
+            Addon.MigrateAuraOverrides(frameTbl)
+            if frameTbl.auraUnits then
+                return frameTbl.auraUnits[itemID]
+            end
+        end
+    end
+end
+
+function OptionsCDMCustomItemMixin:SaveAuraTypeOverride(typeID)
+    local itemID = self:GetAuraOverrideKey()
+    if not itemID or not typeID then return end
+    local frameIndex = HUI_BarsListMixin:GetFrameIndex()
+    local profileName = HUIProfilesMixin:GetPlayerProfile()
+    local profileTable = Addon.P.profilesList[profileName]
+
+    if profileTable["CDMCustomFrames"] then
+        local frameTbl = profileTable["CDMCustomFrames"][frameIndex]
+        if not frameTbl then return end
+        Addon.MigrateAuraOverrides(frameTbl)
+        if not frameTbl.auraTypes then
+            frameTbl.auraTypes = {}
+        end
+        frameTbl.auraTypes[itemID] = typeID
+    end
+end
+
+function OptionsCDMCustomItemMixin:GetAuraTypeOverride()
+    local itemID = self:GetAuraOverrideKey()
+    if not itemID then return end
+    local frameIndex = HUI_BarsListMixin:GetFrameIndex()
+    local profileName = HUIProfilesMixin:GetPlayerProfile()
+    local profileTable = Addon.P.profilesList[profileName]
+
+    if profileTable["CDMCustomFrames"] then
+        local frameTbl = profileTable["CDMCustomFrames"][frameIndex]
+        if frameTbl then
+            Addon.MigrateAuraOverrides(frameTbl)
+            if frameTbl.auraTypes then
+                return frameTbl.auraTypes[itemID]
+            end
+        end
+    end
 end
 
 function OptionsCDMCustomItemMixin:GetStages()

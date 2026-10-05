@@ -19,8 +19,8 @@ local function CreatePandemicElements(auraButton, frameName)
     auraButton.pandemicGlow:Show()
     auraButton.pandemicGlow.FX.Anim:Play()
 
-    auraButton.pandemicBorder.pandemicRegionIndex = auraButton:AddPandemicRegion(auraButton.pandemicBorder)
-    auraButton.pandemicGlow.pandemicRegionIndex = auraButton:AddPandemicRegion(auraButton.pandemicGlow)
+    auraButton.pandemicBorder.pandemicRegionIndex = auraButton:AddPandemicRegion(auraButton.pandemicBorder) or true
+    auraButton.pandemicGlow.pandemicRegionIndex = auraButton:AddPandemicRegion(auraButton.pandemicGlow) or true
 end
 
 HUI_CDMCustomAuraFrameMixin = CreateFromMixins(HUI_CDMCustomAuraMixin)

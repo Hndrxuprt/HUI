@@ -456,8 +456,11 @@ function HUI_CDMCustomBarFrameMixin:OnLoad()
 
     self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.StagesAdded", self.OnStagesAdded)
 
+    self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.AuraUnitChanged", self.OnAuraOverrideChanged)
+    self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.AuraTypeChanged", self.OnAuraOverrideChanged)
+
     C_Timer.After(0.5, function()
-        self:RefreshLayout()    
+        self:RefreshLayout()
     end)
 
     self:SetMouseClickEnabled(false)
@@ -480,6 +483,20 @@ function HUI_CDMCustomBarFrameMixin:OnStagesAdded(spellID, newStages)
         if itemFrame.itemID == spellID or itemFrame.spellID == spellID then
             itemFrame.stages = newStages
             itemFrame:RefreshData()
+        end
+    end
+end
+
+function HUI_CDMCustomBarFrameMixin:OnAuraOverrideChanged(spellID)
+    for itemFrame in self.itemPool:EnumerateActive() do
+        if itemFrame.itemID == spellID or itemFrame.spellID == spellID or itemFrame.baseSpellID == spellID then
+            itemFrame:InvalidateAura()
+            itemFrame:AddAuraSlot()
+            local container = itemFrame:GetAuraContainer()
+            if container then
+                container:SetUnit(itemFrame:GetAuraUnit())
+                container:UpdateAllAuras()
+            end
         end
     end
 end

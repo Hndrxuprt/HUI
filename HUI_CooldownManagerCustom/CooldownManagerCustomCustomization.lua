@@ -674,9 +674,18 @@ local function UnregisterPandemicRegions(auraButton, regions)
             tinsert(entries, { region = region, index = region.pandemicRegionIndex })
         end
     end
-    table.sort(entries, function(a, b) return a.index > b.index end)
+    table.sort(entries, function(a, b)
+        if type(a.index) == "number" and type(b.index) == "number" then
+            return a.index > b.index
+        end
+        return false
+    end)
     for _, entry in ipairs(entries) do
-        auraButton:RemovePandemicRegion(entry.index)
+        if type(entry.index) == "number" then
+            auraButton:RemovePandemicRegion(entry.index)
+        else
+            auraButton:RemovePandemicRegion(entry.region)
+        end
         entry.region.pandemicRegionIndex = nil
     end
 end
@@ -718,7 +727,7 @@ function HUI_CDMCustomFrameCustomized:RefreshPandemicRegions(auraButton, allRegi
     for _, region in ipairs(desiredRegions) do
         if region then
             if not region.pandemicRegionIndex then
-                region.pandemicRegionIndex = auraButton:AddPandemicRegion(region)
+                region.pandemicRegionIndex = auraButton:AddPandemicRegion(region) or true
             end
             region:SetAlpha(1)
         end

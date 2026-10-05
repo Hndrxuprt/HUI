@@ -245,6 +245,14 @@ Addon.FakeAuraType = {
     [2] = L.FakeAuraTypeAdd,
     [3] = L.FakeAuraTypeReset,
 }
+Addon.AuraUnitOptions = {
+    [1] = L.AuraUnitPlayer,
+    [2] = L.AuraUnitTarget,
+}
+Addon.AuraTypeOptions = {
+    [1] = L.AuraTypeHelpful,
+    [2] = L.AuraTypeHarmful,
+}
 Addon.CooldownFormatType = {
     [1] = L.CDFormatFloor,
     [2] = L.CDFormatCeil,

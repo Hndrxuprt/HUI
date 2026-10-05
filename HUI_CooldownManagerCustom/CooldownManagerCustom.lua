@@ -935,11 +935,27 @@ function HUI_CDMCustomItemMixin:SaveRealAuraInit(spellIDs)
     if profileTable["CDMCustomFrames"] then
         local frameTbl = profileTable["CDMCustomFrames"][frameIndex]
         if frameTbl then
+            Addon.MigrateAuraOverrides(frameTbl)
             if not frameTbl.realAuras then
                 frameTbl.realAuras = {}
             end
             if not frameTbl.realAuras[spellID] then
                 frameTbl.realAuras[spellID] = spellIDs
+            end
+            if not frameTbl.auraUnits then
+                frameTbl.auraUnits = {}
+            end
+            if not frameTbl.auraTypes then
+                frameTbl.auraTypes = {}
+            end
+            local overrideKey = self.itemID or self.baseSpellID or self.spellID
+            if not frameTbl.auraUnits[overrideKey] then
+                local auraUnit = self:GetAuraUnit()
+                frameTbl.auraUnits[overrideKey] = auraUnit == "player" and 1 or 2
+            end
+            if not frameTbl.auraTypes[overrideKey] then
+                local auraUnit = self:GetAuraUnit()
+                frameTbl.auraTypes[overrideKey] = auraUnit == "player" and 1 or 2
             end
         end
     end
@@ -1031,8 +1047,8 @@ function HUI_CDMCustomItemMixin:CreatePandemicElements(auraButton)
     realAuraFrame.pandemicGlow:Show()
     realAuraFrame.pandemicGlow.FX.Anim:Play()
 
-    realAuraFrame.pandemicBorder.pandemicRegionIndex = auraButton:AddPandemicRegion(realAuraFrame.pandemicBorder)
-    realAuraFrame.pandemicGlow.pandemicRegionIndex = auraButton:AddPandemicRegion(realAuraFrame.pandemicGlow)
+    realAuraFrame.pandemicBorder.pandemicRegionIndex = auraButton:AddPandemicRegion(realAuraFrame.pandemicBorder) or true
+    realAuraFrame.pandemicGlow.pandemicRegionIndex = auraButton:AddPandemicRegion(realAuraFrame.pandemicGlow) or true
 end
 
 function HUI_CDMCustomItemMixin:ConfigureAuraContainer(auraButton)
@@ -1078,12 +1094,16 @@ function HUI_CDMCustomItemMixin:ConfigureAuraContainer(auraButton)
         self.realAuraFrame.overlayFrame.count = self.realAuraFrame.overlayFrame:CreateFontString(nil, "OVERLAY")
     end
 
+    local dispelBorderOptions = {
+        showIcon = true,
+        showWhenHarmful = true,
+        showWhenHelpful = false,
+    }
     if auraButton.SetAuraBorder then
-        auraButton:SetAuraBorder(self.realAuraFrame.dispelBorder, {
-            showIcon = true,
-            showWhenHarmful = true,
-            showWhenHelpful = false,
-        })
+        auraButton:SetAuraBorder(self.realAuraFrame.dispelBorder, dispelBorderOptions)
+    elseif auraButton.AddDispelTypeTexture then
+        auraButton:ClearDispelTypeTextures()
+        auraButton:AddDispelTypeTexture(self.realAuraFrame.dispelBorder, dispelBorderOptions)
     end
     
     HUI_CDMCustomFrameCustomized:CustomizeCooldownFrame(self.realAuraCooldownFrame, self.parentName, self.Icon, true)
@@ -1141,6 +1161,78 @@ function HUI_CDMCustomItemMixin:ClearAuraSlots()
     self.AuraSet = nil
 end
 
+local auraUnitByOverrideID = {
+    [1] = "player",
+    [2] = "target",
+}
+local auraTypeByOverrideID = {
+    [1] = "HELPFUL",
+    [2] = "HARMFUL",
+}
+
+function Addon.MigrateAuraOverrides(frameTbl)
+    if frameTbl.auraOverridesV2 then return end
+    frameTbl.auraOverridesV2 = true
+    if frameTbl.auraUnits then
+        for spellID, id in pairs(frameTbl.auraUnits) do
+            frameTbl.auraUnits[spellID] = id == 3 and 2 or (id == 2 and 1 or nil)
+        end
+    end
+    if frameTbl.auraTypes then
+        for spellID, id in pairs(frameTbl.auraTypes) do
+            frameTbl.auraTypes[spellID] = id == 3 and 2 or (id == 2 and 1 or nil)
+        end
+    end
+end
+
+function HUI_CDMCustomItemMixin:GetAuraUnitOverride()
+    local frameName = self.parentName
+    local parentFrame = frameName and _G[frameName]
+    if not parentFrame then return end
+    local frameIndex = parentFrame:GetFrameIndexByName(frameName)
+    local spellID = self.itemID or self.baseSpellID or self.spellID
+
+    if profileTable["CDMCustomFrames"] then
+        local frameTbl = profileTable["CDMCustomFrames"][frameIndex]
+        if frameTbl then
+            Addon.MigrateAuraOverrides(frameTbl)
+            if frameTbl.auraUnits then
+                return auraUnitByOverrideID[frameTbl.auraUnits[spellID]]
+            end
+        end
+    end
+end
+
+function HUI_CDMCustomItemMixin:GetAuraTypeOverride()
+    local frameName = self.parentName
+    local parentFrame = frameName and _G[frameName]
+    if not parentFrame then return end
+    local frameIndex = parentFrame:GetFrameIndexByName(frameName)
+    local spellID = self.itemID or self.baseSpellID or self.spellID
+
+    if profileTable["CDMCustomFrames"] then
+        local frameTbl = profileTable["CDMCustomFrames"][frameIndex]
+        if frameTbl then
+            Addon.MigrateAuraOverrides(frameTbl)
+            if frameTbl.auraTypes then
+                return auraTypeByOverrideID[frameTbl.auraTypes[spellID]]
+            end
+        end
+    end
+end
+
+function HUI_CDMCustomItemMixin:GetAuraFilterString()
+    local auraType = self:GetAuraTypeOverride()
+    if auraType == "HELPFUL" then
+        return "HELPFUL|PLAYER"
+    elseif auraType == "HARMFUL" then
+        return "HARMFUL|PLAYER"
+    end
+
+    local auraUnit = self:GetAuraUnit()
+    return auraUnit == "player" and "HELPFUL|PLAYER" or "HARMFUL|PLAYER"
+end
+
 function HUI_CDMCustomItemMixin:AddAuraSlot()
 
     if self.fakeAura and self.fakeAura.duration then return end
@@ -1167,8 +1259,7 @@ function HUI_CDMCustomItemMixin:AddAuraSlot()
 
     local container = self:CreateAuraContainer()
 
-    local auraUnit = self:GetAuraUnit()
-    local filterString = auraUnit == "player" and "HELPFUL|PLAYER" or "HARMFUL|PLAYER"
+    local filterString = self:GetAuraFilterString()
     local IsElemHackNeeded = self:IsElemHackNeeded() == true
 
     if not self.AuraSet then
@@ -1210,6 +1301,12 @@ end
 function HUI_CDMCustomItemMixin:GetAuraUnit()
 
     if self.auraUnit then return self.auraUnit end
+
+    local override = self:GetAuraUnitOverride()
+    if override then
+        self.auraUnit = override
+        return override
+    end
 
     local auraTbl = self:GetRealAura()
     self.auraSpellID = auraTbl and tonumber(auraTbl[1]) or self.auraSpellID or self.spellID
@@ -1337,6 +1434,8 @@ function HUI_CDMCustomFrameMixin:OnLoad()
     self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.UpdateFrame", self.OnFrameUpdate)
 
     self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.RealAuraAdded", self.OnRealAuraAdded)
+    self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.AuraUnitChanged", self.OnAuraOverrideChanged)
+    self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.AuraTypeChanged", self.OnAuraOverrideChanged)
 
     for _, data in ipairs(self.itemList) do
         if data.type == "item" and not C_Item.IsItemDataCachedByID(tonumber(data.id)) then
@@ -1396,6 +1495,20 @@ function HUI_CDMCustomFrameMixin:OnRealAuraAdded(spellID, auraSpellIDs)
         if itemFrame.itemID == spellID or itemFrame.spellID == spellID then
             itemFrame:InvalidateAura()
             itemFrame:AddAuraSlot()
+        end
+    end
+end
+
+function HUI_CDMCustomFrameMixin:OnAuraOverrideChanged(spellID)
+    for itemFrame in self.itemPool:EnumerateActive() do
+        if itemFrame.itemID == spellID or itemFrame.spellID == spellID or itemFrame.baseSpellID == spellID then
+            itemFrame:InvalidateAura()
+            itemFrame:AddAuraSlot()
+            local container = itemFrame:GetAuraContainer()
+            if container then
+                container:SetUnit(itemFrame:GetAuraUnit())
+                container:UpdateAllAuras()
+            end
         end
     end
 end
@@ -2586,9 +2699,13 @@ end
 local function OnDeleteMenuFrame(self, frameLabel)
     local frame = _G[frameLabel]
     if frame then
+        if HUI_CDMCustomFrameSelectionManager.currentlySelected == frame then
+            HUI_CDMCustomFrameSelectionManager.currentlySelected = nil
+        end
         if frame.itemPool then
             frame.itemPool:ReleaseAll()
         end
+        frame:UnregisterAllEventMethods()
         frame:UnregisterAllEvents()
         frame:Hide()
         _G[frameLabel] = nil
@@ -2596,6 +2713,11 @@ local function OnDeleteMenuFrame(self, frameLabel)
 
     if pinnedFrameLabel == frameLabel then
         pinnedFrameLabel = nil
+    end
+
+    if Addon.C[frameLabel] then
+        wipe(Addon.C[frameLabel])
+        Addon.C[frameLabel] = nil
     end
 
     local frameIndex = HUI_CDMCustomFrameMixin:GetFrameIndexByName(frameLabel)
@@ -2625,6 +2747,7 @@ local function DestroyFrameByLabel(label)
         if frame.itemPool then
             frame.itemPool:ReleaseAll()
         end
+        frame:UnregisterAllEventMethods()
         frame:UnregisterAllEvents()
         frame.itemList = nil
         frame:Hide()

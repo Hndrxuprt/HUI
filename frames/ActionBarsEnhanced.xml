@@ -903,7 +903,7 @@
 					<Frame parentKey="FakeAuraContainer">
 						<Size x="586" y="40"/>
 						<Anchors>
-							<Anchor point="TOPLEFT" x="0" y="-80" relativeKey="$parent" relativePoint="TOPLEFT"/>
+							<Anchor point="TOPLEFT" x="0" y="-74" relativeKey="$parent" relativePoint="TOPLEFT"/>
 						</Anchors>
 						<Layers>
 							<Layer level="ARTWORK">
@@ -939,6 +939,56 @@
 										</FontString>
 									</Layer>
 								</Layers>
+							</Frame>
+						</Frames>
+					</Frame>
+					<Frame parentKey="UnitContainer">
+						<Size x="300" y="40"/>
+						<Anchors>
+							<Anchor point="TOPLEFT" x="0" y="0" relativeKey="$parent.AuraContainer" relativePoint="BOTTOMLEFT"/>
+						</Anchors>
+						<Layers>
+							<Layer level="ARTWORK">
+								<FontString parentKey="Name" inherits="ObjectiveTrackerFont14" justifyH="LEFT" text="Aura Unit:">
+									<Size x="90"/>
+									<Anchors>
+										<Anchor point="TOPLEFT" relativeKey="$parent" relativePoint="TOPLEFT" x="15" y="-5"/>
+									</Anchors>
+									<Color r="0.792" g="0.776" b="0.741" a="1"/>
+								</FontString>
+							</Layer>
+						</Layers>
+						<Frames>
+							<Frame parentKey="Dropdown" inherits="Metal2DropdownWithSteppersAndLabelTemplate">
+								<Size x="180" y="28"/>
+								<Anchors>
+									<Anchor point="LEFT" relativeKey="$parent.Name" relativePoint="RIGHT" x="0"/>
+								</Anchors>
+							</Frame>
+						</Frames>
+					</Frame>
+					<Frame parentKey="AuraTypeContainer">
+						<Size x="286" y="40"/>
+						<Anchors>
+							<Anchor point="TOPLEFT" x="300" y="0" relativeKey="$parent.UnitContainer" relativePoint="TOPLEFT"/>
+						</Anchors>
+						<Layers>
+							<Layer level="ARTWORK">
+								<FontString parentKey="Name" inherits="ObjectiveTrackerFont14" justifyH="LEFT" text="Aura Type:">
+									<Size x="90"/>
+									<Anchors>
+										<Anchor point="TOPLEFT" relativeKey="$parent" relativePoint="TOPLEFT" x="15" y="-5"/>
+									</Anchors>
+									<Color r="0.792" g="0.776" b="0.741" a="1"/>
+								</FontString>
+							</Layer>
+						</Layers>
+						<Frames>
+							<Frame parentKey="Dropdown" inherits="Metal2DropdownWithSteppersAndLabelTemplate">
+								<Size x="180" y="28"/>
+								<Anchors>
+									<Anchor point="LEFT" relativeKey="$parent.Name" relativePoint="RIGHT" x="0"/>
+								</Anchors>
 							</Frame>
 						</Frames>
 					</Frame>
@@ -984,7 +1034,7 @@
 					<Button parentKey="Button" mixin="HUI_FakeAuraConfirmButtonMixin" virtual="true" scale="0.9" hidden="false">
 						<Size x="150" y="28"/>
 						<Anchors>
-							<Anchor point="BOTTOM" relativePoint="BOTTOM" x="0" y="40"/>
+							<Anchor point="BOTTOM" relativePoint="BOTTOM" x="0" y="36"/>
 						</Anchors>
 						<NormalFont style="UserScaledFontGameNormal"/>
 						<HighlightFont style="UserScaledFontGameHighlight"/>

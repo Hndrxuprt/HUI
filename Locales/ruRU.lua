@@ -568,6 +568,13 @@ L.ConfigureAura = "Настройка Ауры"
 L.FakeAuraTimer = "Таймер Фейк ауры:"
 L.RealAuraID = "SpellID Ауры"
 
+L.AuraUnitTitle = "Юнит Ауры"
+L.AuraUnitPlayer = "Игрок"
+L.AuraUnitTarget = "Цель"
+L.AuraTypeTitle = "Тип Ауры"
+L.AuraTypeHelpful = "Помощь (Helpful)"
+L.AuraTypeHarmful = "Урон (Harmful)"
+
 L.LockedInCombat = "Настройки заблокированы во время боя"
 -- ==========================================
 -- Custom Frame Spec Visibility

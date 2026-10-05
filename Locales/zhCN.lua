@@ -533,6 +533,13 @@ L.FakeAuraTypeNone = "无（不执行任何操作）"
 L.FakeAuraTypeAdd = "累加（将完整计时器添加到剩余持续时间）"
 L.FakeAuraTypeReset = "重置（重置为完整持续时间）"
 
+L.AuraUnitTitle = "光环单位"
+L.AuraUnitPlayer = "玩家"
+L.AuraUnitTarget = "目标"
+L.AuraTypeTitle = "光环类型"
+L.AuraTypeHelpful = "有益 (Helpful)"
+L.AuraTypeHarmful = "有害 (Harmful)"
+
 L.CooldownFormatType = "计时器取整"
 L.CDFormatFloor = "向下取整"
 L.CDFormatCeil = "向上取整"
