@@ -1,4 +1,4 @@
-## Interface: 120100
+## Interface: 120105
 ## Title: HUI | CooldownManagerCustom
 ## IconTexture: Interface\AddOns\HUI\assets\icon
 ## Notes: HUI CooldownManagerCustom module
