@@ -667,6 +667,12 @@ Addon.Defaults = {
 
     CDMCustomPingEnabled = true,
 
+    CDMPushedTextureEnable = false,
+    CDMPushedTexture = 2,
+    UseCDMPushedColor = true,
+    DesaturateCDMPushed = true,
+    CDMPushedColor = "CLASS_COLOR",
+
     CDMCustomTrackTrink1 = false,
     CDMCustomTrackTrink2 = false,
 

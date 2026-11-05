@@ -522,6 +522,14 @@ Addon.EssentialCooldownViewer = {
         }
     },
     {
+        name = "PushedTextureOptionsContainer",
+        childs = {
+            {name = "CDMPushedTextureEnable", template = "OptionsCheckboxTemplate"},
+            {name = "CDMPushedTextureOptions", template = "OptionsDropdownTemplate"},
+            {name = "CustomColorCDMPushed", template = "OptionsColorOverrideTemplate"},
+        }
+    },
+    {
         name = "FadeOptionsContainer",
         childs = {
             {name = "FadeOutBars", template = "OptionsCheckboxSliderTemplate"},
@@ -847,6 +855,14 @@ Addon.CustomFrameCooldownViewer = {
             {name = "CustomColorProc", template = "OptionsColorOverrideTemplate",},
             {name = "ProcLoopPreview", template = "OptionsButtonGlowPreviewTemplate", point = {"TOP", "desc", "BOTTOM", 180, 4}, scale="1.8"},
             {name = "ProcStartPreview", template = "OptionsButtonGlowPreviewTemplate", point = {"TOP", "Divider", "BOTTOM", 180, -10}, scale="1.8"},
+        }
+    },
+    {
+        name = "PushedTextureOptionsContainer",
+        childs = {
+            {name = "CDMPushedTextureEnable", template = "OptionsCheckboxTemplate"},
+            {name = "CDMPushedTextureOptions", template = "OptionsDropdownTemplate"},
+            {name = "CustomColorCDMPushed", template = "OptionsColorOverrideTemplate"},
         }
     },
     {

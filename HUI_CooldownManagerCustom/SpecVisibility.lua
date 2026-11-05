@@ -11,13 +11,18 @@ end
 
 function Addon:CDMGetClassSpecOptions()
 	local options = {}
+	local numGetter = C_SpecializationInfo and C_SpecializationInfo.GetNumSpecializationsForClassID
+	local infoGetter = GetSpecializationInfoForClassID or (C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfoForClassID)
+	if not numGetter or not infoGetter then
+		return options
+	end
 	for i = 1, GetNumClasses() do
 		local className, classFile, classID = GetClassInfo(i)
 		if classFile and classID then
 			local specs = {}
-			local numSpecs = C_SpecializationInfo.GetNumSpecializationsForClassID(classID)
+			local numSpecs = numGetter(classID)
 			for specIndex = 1, numSpecs do
-				local specID, specName = GetSpecializationInfoForClassID(classID, specIndex)
+				local specID, specName = infoGetter(classID, specIndex)
 				if specID and specName then
 					tinsert(specs, { specID = specID, specName = specName })
 				end
@@ -35,10 +40,13 @@ end
 
 function Addon:CDMGetPlayerClassSpec()
 	local _, classFile = UnitClass("player")
-	local specIndex = GetSpecialization()
+	local specIndex = GetSpecialization and GetSpecialization()
 	local specID
 	if specIndex then
-		specID = GetSpecializationInfo(specIndex)
+		local getter = GetSpecializationInfo or (C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo)
+		if getter then
+			specID = getter(specIndex)
+		end
 	end
 	return classFile, specID
 end

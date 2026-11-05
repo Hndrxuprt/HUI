@@ -1,4 +1,4 @@
-## Interface: 120105
+## Interface: 120105, 16001
 ## Title: HUI | CooldownManagerView
 ## IconTexture: Interface\AddOns\HUI\assets\icon
 ## Notes: HUI CooldownManagerView module

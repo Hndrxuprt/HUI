@@ -91,6 +91,48 @@ Addon.config.containers = {
             }
         }
     },
+    PushedTextureOptionsContainer = {
+        title = L.PushedTitle,
+        desc = L.PushedDesc,
+        childs = {
+            ["CDMPushedTextureEnable"] = {
+                type            = "checkbox",
+                name            = L.CDMPushedTextureTitle,
+                value           = "CDMPushedTextureEnable",
+                callback        = function()
+                    if Addon.PushedTextureMirror then
+                        Addon.PushedTextureMirror:RefreshAll()
+                    end
+                end,
+            },
+            ["CDMPushedTextureOptions"] = {
+                type        = "dropdown",
+                setting     = T.PushedTextures,
+                name        = L.PushedTextureType,
+                IsSelected  = function(id) return id == Addon:GetValue("CDMPushedTexture", nil, true) end,
+                OnSelect    = function(id) Addon:SaveSetting("CDMPushedTexture", id, true) end,
+                showNew     = false,
+                OnEnter     = false,
+                OnClose     = function()
+                    if Addon.PushedTextureMirror then
+                        Addon.PushedTextureMirror:RefreshAll()
+                    end
+                end,
+            },
+            ["CustomColorCDMPushed"] = {
+                type            = "colorSwatch",
+                name            = L.UseCustomColor,
+                value           = "CDMPushedColor",
+                checkboxValues  = {"UseCDMPushedColor", "DesaturateCDMPushed"},
+                alpha           = false,
+                callback        = function()
+                    if Addon.PushedTextureMirror then
+                        Addon.PushedTextureMirror:RefreshAll()
+                    end
+                end,
+            },
+        }
+    },
     AssistLoopOptionsContainer = {
         title = L.AssistTitle,
         desc = L.AssistDesc,

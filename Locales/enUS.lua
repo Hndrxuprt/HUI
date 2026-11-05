@@ -89,6 +89,7 @@ L.IconScale = "Modify Icon Scale"
 L.PushedTitle = "Pushed Texture Style"
 L.PushedDesc = "Texture that appears when you press a button."
 L.PushedTextureType = "Pushed Texture Type"
+L.CDMPushedTextureTitle = "Pushed Texture on Skill Press"
 
 L.HighlightTitle = "Highlight Texture Style"
 L.HighlightDesc = "Texture that appears when you hover over a button."

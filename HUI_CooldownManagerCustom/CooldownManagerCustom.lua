@@ -2156,6 +2156,17 @@ function HUI_CDMCustomFrameMixin:OnAcquireItemFrame(itemFrame)
     --itemFrame:RefreshCount()
     itemFrame:RefreshData()
 	--itemFrame:SetHideWhenInactive(self.hideWhenInactive);
+
+    if Addon.PushedTextureMirror and not itemFrame.Bar then
+        local frameName = self.frameName or itemFrame.parentName
+        Addon.PushedTextureMirror:HideOverlays(itemFrame)
+        Addon.PushedTextureMirror:RegisterIcon(itemFrame, {
+            frameName = frameName,
+            spellID = function() return itemFrame:GetSpellID() end,
+            itemID = function() return itemFrame.itemID end,
+            slot = function() return itemFrame.slotID end,
+        })
+    end
 end
 
 function HUI_CDMCustomFrameMixin:FindKnownInCDM(spellID)

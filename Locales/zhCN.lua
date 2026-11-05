@@ -91,6 +91,7 @@ L.IconScale = "修改图标缩放"
 L.PushedTitle = "按下时材质样式"
 L.PushedDesc = "按下按钮时显示的材质。"
 L.PushedTextureType = "按下材质类型"
+L.CDMPushedTextureTitle = "技能按下时的材质"
 
 L.HighlightTitle = "高亮材质样式"
 L.HighlightDesc = "鼠标悬停在按钮上时显示的材质。"
