@@ -1083,7 +1083,7 @@ local function Hook_UpdateButton(button, isStanceBar)
     end
 
     local frame = button:GetParent():GetName()
-    if frame == "MicroMenu" or frame == "BagsBar" then
+    if frame == "MicroMenu" or frame == "BagsBar" or frame == "BagSlotCluster" then
         return
     end
 
@@ -1473,6 +1473,7 @@ local function UpdateStanceAndPetBars()
     end
     if BagsBar then
         for i, button in MainMenuBarBagManager:EnumerateBagButtons() do
+            button.bar = BagsBar
             Hook_UpdateButton(button, true)
         end
     end

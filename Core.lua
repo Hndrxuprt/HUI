@@ -4,6 +4,14 @@ _G.HUI = Addon
 
 Addon.Name = AddonName
 
+function Addon:GetGameFamily()
+    local ok, _, _, _, interface = pcall(GetBuildInfo)
+    if not ok or type(interface) ~= "number" or (issecretvalue and issecretvalue(interface)) then
+        return nil
+    end
+    return (interface >= 16000 and interface < 20000) and "forever" or "retail"
+end
+
 Addon.Modules = {}
 Addon.ModuleList = {
     "ActionBars",

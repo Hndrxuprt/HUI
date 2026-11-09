@@ -5,6 +5,143 @@ local L = Addon.L
 local REORDER_MARKER_BEFORE_TARGET = false
 local REORDER_MARKER_AFTER_TARGET = true
 
+local IS_FOREVER = (function()
+    local _, _, _, iface = GetBuildInfo()
+    return type(iface) == "number" and iface >= 16000 and iface < 20000
+end)()
+
+local RANK_SETTING_MAPS = {
+    "fakeAuras",
+    "realAuras",
+    "auraUnits",
+    "auraTypes",
+    "color",
+    "auraColor",
+    "sounds",
+    "displayTypes",
+    "stages",
+    "stageThresholds",
+}
+
+local function GetSpellRankText(spellID)
+    if not spellID or not C_Spell.GetSpellSubtext then return nil end
+    local text = C_Spell.GetSpellSubtext(spellID)
+    if type(text) ~= "string" or text == "" or issecretvalue(text) then return nil end
+    return text
+end
+
+local function GetRankNumber(spellID)
+    local text = GetSpellRankText(spellID)
+    if not text then return nil end
+    return tonumber(text:match("(%d+)"))
+end
+
+local function BuildSpellRankCache()
+    local byName, bySpellID = {}, {}
+    if not IS_FOREVER then return { byName = byName, bySpellID = bySpellID } end
+    if not (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines
+        and C_SpellBook.GetSpellBookSkillLineInfo and C_SpellBook.GetSpellBookItemInfo) then
+        return { byName = byName, bySpellID = bySpellID }
+    end
+    local bank = Enum and Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player
+    local spellType = Enum and Enum.SpellBookItemType and Enum.SpellBookItemType.Spell
+    if not bank or not spellType then return { byName = byName, bySpellID = bySpellID } end
+
+    pcall(function()
+        for line = 1, C_SpellBook.GetNumSpellBookSkillLines() do
+            local lineInfo = C_SpellBook.GetSpellBookSkillLineInfo(line)
+            if lineInfo and lineInfo.itemIndexOffset and lineInfo.numSpellBookItems then
+                for slot = lineInfo.itemIndexOffset + 1, lineInfo.itemIndexOffset + lineInfo.numSpellBookItems do
+                    local itemInfo = C_SpellBook.GetSpellBookItemInfo(slot, bank)
+                    local spellID = itemInfo and itemInfo.itemType == spellType and itemInfo.spellID
+                    if spellID and not issecretvalue(spellID) then
+                        local rankText = GetSpellRankText(spellID)
+                        if not rankText and itemInfo.subName and itemInfo.subName ~= "" then
+                            rankText = itemInfo.subName
+                        end
+                        local rank = rankText and tonumber(rankText:match("(%d+)"))
+                        local name = C_Spell.GetSpellName(spellID) or itemInfo.name
+                        if rank and name then
+                            local list = byName[name]
+                            if not list then
+                                list = {}
+                                byName[name] = list
+                            end
+                            local seen = false
+                            for i = 1, #list do
+                                if list[i].rank == rank or list[i].spellID == spellID then
+                                    seen = true
+                                    break
+                                end
+                            end
+                            if not seen then
+                                local entry = { spellID = spellID, rankText = rankText, rank = rank }
+                                list[#list + 1] = entry
+                                bySpellID[spellID] = entry
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    for _, list in pairs(byName) do
+        table.sort(list, function(a, b)
+            if a.rank ~= b.rank then return a.rank < b.rank end
+            return a.spellID < b.spellID
+        end)
+    end
+    return { byName = byName, bySpellID = bySpellID }
+end
+
+local function GetNeighborRanks(rankCache, spellID)
+    if not spellID then return nil end
+    local name = C_Spell.GetSpellName(spellID)
+    local list = name and rankCache and rankCache.byName and rankCache.byName[name]
+    if not list or #list == 0 then return nil end
+
+    local currentIndex
+    for i = 1, #list do
+        if list[i].spellID == spellID then
+            currentIndex = i
+            break
+        end
+    end
+
+    if currentIndex then
+        return list[currentIndex - 1], list[currentIndex + 1]
+    end
+
+    local currentRank = GetRankNumber(spellID)
+    if not currentRank then return nil end
+
+    local prevRank, nextRank
+    for i = 1, #list do
+        local entry = list[i]
+        if entry.rank < currentRank then
+            prevRank = entry
+        elseif entry.rank > currentRank then
+            nextRank = entry
+            break
+        end
+    end
+    return prevRank, nextRank
+end
+
+local function MigrateTrackedSpellSettings(frameTbl, oldID, newID)
+    if not frameTbl or oldID == newID then return end
+    for _, key in ipairs(RANK_SETTING_MAPS) do
+        local map = frameTbl[key]
+        if type(map) == "table" and map[oldID] ~= nil then
+            if map[newID] == nil then
+                map[newID] = map[oldID]
+            end
+            map[oldID] = nil
+        end
+    end
+end
+
 HUI_CDMThresholdMixin = {}
 
 function HUI_CDMThresholdMixin:NormalizeRecord(record)
@@ -329,6 +466,7 @@ function OptionsCDMCustomItemListMixin:OnShow()
 
     local gridFrame = self.ItemListScroll.GridContainer
 
+    self.rankCache = BuildSpellRankCache()
     self.itemPool:ReleaseAll()
 
     for index, data in ipairs(self.itemList) do
@@ -342,20 +480,25 @@ function OptionsCDMCustomItemListMixin:OnShow()
             item.baseSpellID = data.baseID
         elseif data.type == "potion" then
             local potInfo = Addon.Potions.byType[data.potType]
-            item.itemID = potInfo and potInfo.items[1] or nil
+            local potionItemID
+            if potInfo then
+                for _, id in ipairs(potInfo.items) do
+                    if Addon:IsItemSupported(id) then
+                        potionItemID = id
+                        break
+                    end
+                end
+            end
+            item.itemID = potionItemID
             item.spellID = nil
             item.baseSpellID = nil
             item.potType = data.potType
             if item.itemID and not C_Item.IsItemDataCachedByID(item.itemID) then
-                self.__pendingItemLoads = self.__pendingItemLoads or {}
-                if not self.__pendingItemLoads[item.itemID] then
-                    self.__pendingItemLoads[item.itemID] = true
-                    C_Item.RequestLoadItemDataByID(item.itemID)
-                    Item:CreateFromItemID(item.itemID):ContinueOnItemLoad(function()
-                        self.__pendingItemLoads[item.itemID] = nil
+                Addon:RequestItemData(item.itemID, function(loaded)
+                    if loaded then
                         self:OnShow()
-                    end)
-                end
+                    end
+                end)
             end
         elseif data.type == "slot" then
             local inventoryItem = C_TooltipInfo.GetInventoryItem("player", data.id)
@@ -375,11 +518,11 @@ function OptionsCDMCustomItemListMixin:OnShow()
         item.color = item:GetCustomColor()
         item.auraColor = item:GetCustomAuraColor()
         item.barDisplayType = item:GetBarDisplayType()
+        item.rankCache = self.rankCache
+        item.parentFrame = self
 
         item:SetParent(gridFrame)
         item:Show()
-
-        item.parentFrame = self
     end
 
     gridFrame:Layout()
@@ -989,13 +1132,17 @@ local function GetPotionKindList()
     for i, kindKey in ipairs(Addon.PotionKindOrder.DPS) do
         local entry
         local rep = GetRegularPotionRep(kindKey) or Addon.PotionKindReps[kindKey]
-        if rep then
-            local name, _, quality = C_Item.GetItemInfo(rep)
-            local icon = C_Item.GetItemIconByID(rep)
-            if name and name ~= "" and icon then
-                local hex = quality and ITEM_QUALITY_COLORS[quality] and ITEM_QUALITY_COLORS[quality].hex or "|cffffffff"
-                local text = format("|T%d:16:16:0:0:64:64:4:60:4:60|t %s%s|r", icon, hex, name)
-                entry = { key = kindKey, name = text, itemID = rep }
+        if rep and Addon:IsItemSupported(rep) then
+            if not C_Item.IsItemDataCachedByID(rep) then
+                Addon:RequestItemData(rep)
+            else
+                local name, _, quality = C_Item.GetItemInfo(rep)
+                local icon = C_Item.GetItemIconByID(rep)
+                if name and name ~= "" and icon then
+                    local hex = quality and ITEM_QUALITY_COLORS[quality] and ITEM_QUALITY_COLORS[quality].hex or "|cffffffff"
+                    local text = format("|T%d:16:16:0:0:64:64:4:60:4:60|t %s%s|r", icon, hex, name)
+                    entry = { key = kindKey, name = text, itemID = rep }
+                end
             end
         end
         if not entry then
@@ -1050,15 +1197,11 @@ function OptionsCDMCustomItemListMixin:OpenPotionSettings(item)
     local potType = item.potType
 
     for _, rep in pairs(Addon.PotionKindReps) do
-        if not C_Item.IsItemDataCachedByID(rep) then
-            C_Item.RequestLoadItemDataByID(rep)
-        end
+        Addon:RequestItemData(rep)
     end
     for _, quality in ipairs({"t2", "t1"}) do
         for _, rep in ipairs(Addon.PotionsData.DPS.regular[quality]) do
-            if not C_Item.IsItemDataCachedByID(rep) then
-                C_Item.RequestLoadItemDataByID(rep)
-            end
+            Addon:RequestItemData(rep)
         end
     end
 
@@ -1264,6 +1407,86 @@ function OptionsCDMCustomItemMixin:OnShow()
             end ]]
         end
     end
+
+    self:RefreshRankText()
+end
+
+function OptionsCDMCustomItemMixin:RefreshRankText()
+    if not self.RankSwitch then return end
+
+    if not self.__rankSwitchBound then
+        self.__rankSwitchBound = true
+        self.RankSwitch.PrevButton:SetScript("OnClick", function()
+            self:ChangeTrackedRank(-1)
+        end)
+        self.RankSwitch.NextButton:SetScript("OnClick", function()
+            self:ChangeTrackedRank(1)
+        end)
+    end
+
+    local rank
+    if IS_FOREVER and self.type == "spell" and self.spellID then
+        local rankCache = self.rankCache
+        local entry = rankCache and rankCache.bySpellID and rankCache.bySpellID[self.spellID]
+        rank = entry and entry.rank or GetRankNumber(self.spellID)
+    end
+    if not rank then
+        self.RankSwitch:Hide()
+        return
+    end
+
+    local prevRank, nextRank = self:GetTrackedRankNeighbors()
+    self.RankSwitch.Text:SetText(tostring(rank))
+    self.RankSwitch.PrevButton:SetAlpha(prevRank and 1 or 0.3)
+    self.RankSwitch.NextButton:SetAlpha(nextRank and 1 or 0.3)
+    self.RankSwitch:Show()
+end
+
+function OptionsCDMCustomItemMixin:ChangeTrackedRank(step)
+    local prevRank, nextRank = self:GetTrackedRankNeighbors()
+    local target = step < 0 and prevRank or nextRank
+    if target then
+        self:SetTrackedSpellRank(target.spellID)
+    end
+end
+
+function OptionsCDMCustomItemMixin:GetTrackedRankNeighbors()
+    if not IS_FOREVER or self.type ~= "spell" or not self.spellID then return nil end
+    local rankCache = self.parentFrame and self.parentFrame.rankCache
+    if not rankCache then
+        rankCache = BuildSpellRankCache()
+    end
+    return GetNeighborRanks(rankCache, self.spellID)
+end
+
+function OptionsCDMCustomItemMixin:SetTrackedSpellRank(newSpellID)
+    if not newSpellID or self.type ~= "spell" then return end
+
+    local parentFrame = self.parentFrame
+    local itemList = parentFrame and parentFrame.itemList
+    local data = itemList and itemList[self.layoutIndex]
+    if not data or data.type ~= "spell" or data.id == newSpellID then return end
+
+    for index, entry in ipairs(itemList) do
+        if index ~= self.layoutIndex and entry.type == "spell" and entry.id == newSpellID then
+            return
+        end
+    end
+
+    local frameIndex = HUI_BarsListMixin:GetFrameIndex()
+    local profileName = HUIProfilesMixin:GetPlayerProfile()
+    local profileTable = Addon.P.profilesList[profileName]
+    local frameTbl = profileTable["CDMCustomFrames"] and profileTable["CDMCustomFrames"][frameIndex]
+    if frameTbl then
+        MigrateTrackedSpellSettings(frameTbl, data.id, newSpellID)
+    end
+
+    data.id = newSpellID
+    local baseID = C_Spell.GetBaseSpell(newSpellID)
+    data.baseID = baseID ~= newSpellID and baseID or nil
+
+    EventRegistry:TriggerEvent("CDMCustomItemList.ItemAdded", itemList, parentFrame.frameName)
+    parentFrame:OnShow()
 end
 
 function OptionsCDMCustomItemMixin:IsBarFrame()
@@ -1279,9 +1502,15 @@ function OptionsCDMCustomItemMixin:GetIconTexture()
     local isKnown = false
     local spellID = self:GetSpellID()
     if self.type ~= "spell" and spellID then
-        isKnown = true
-        texture = C_Item.GetItemIconByID(spellID)
-    elseif spellID then
+        if Addon:IsItemSupported(spellID) then
+            if C_Item.IsItemDataCachedByID(spellID) then
+                isKnown = true
+                texture = C_Item.GetItemIconByID(spellID)
+            else
+                Addon:RequestItemData(spellID)
+            end
+        end
+    elseif spellID and Addon:IsSpellSupported(spellID) then
         texture = C_Spell.GetSpellTexture(spellID)
         if self:IsAuraFrame() then
             isKnown = true

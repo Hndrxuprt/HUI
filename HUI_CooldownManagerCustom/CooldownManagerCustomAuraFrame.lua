@@ -135,7 +135,7 @@ end
 
 function HUI_CDMCustomAuraFrameMixin:UpdatePlaceholder(placeholder, spellID)
 	placeholder:SetSize(self.iconSize, self.iconSize)
-	placeholder.icon:SetTexture(C_Spell.GetSpellTexture(spellID))
+	placeholder.icon:SetTexture(Addon:IsSpellSupported(spellID) and C_Spell.GetSpellTexture(spellID) or nil)
 	HUI_CDMCustomFrameCustomized:ApplyIconMask(placeholder.icon, self:GetName(), self.iconSize)
 	HUI_CDMCustomFrameCustomized:ApplyIconBorder(placeholder.icon.iconBorder, placeholder.icon, self.iconSize)
 	self:RefreshBackdrop(placeholder.icon.iconBorder)

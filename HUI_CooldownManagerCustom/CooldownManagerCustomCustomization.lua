@@ -934,8 +934,9 @@ end
 
 function HUI_CDMCustomFrameCustomized:ApplyStacks(itemFrame, frameName)
     local stacksString = itemFrame.countText or itemFrame.Bar.Count
+    local forcedItemID = Addon:GetForcedCountItemID(itemFrame.spellID) or Addon:GetForcedCountItemID(itemFrame.baseSpellID)
 
-    if Addon:GetValue("CustomFrameBarStacksEnable", nil, frameName) then
+    if Addon:GetValue("CustomFrameBarStacksEnable", nil, frameName) or forcedItemID then
         stacksString:Show()
 
         local color = {r = 1.0, g = 1.0, b = 1.0, a = 1.0}

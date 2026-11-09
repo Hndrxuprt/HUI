@@ -186,6 +186,7 @@ L.ProfilesHeaderText = "你可以更改当前使用的数据库配置文件，�
 L.ProfilesCopyText = "将现有配置文件中的设置复制到当前使用的配置文件中。"
 L.ProfilesDeleteText = "从数据库中删除现有且未使用的配置文件以节省空间，并清理 SavedVariables 文件。"
 L.ProfilesImportText = "通过简单的字符串分享你的配置文件或导入他人的配置文件。"
+L.ProfileCrossVersionCleaned = "配置文件来自其他或未知的游戏版本：自定义框架中的法术和物品内容已移除，插槽追踪已保留。"
 
 -- ==========================================
 -- WeakAuras 整合

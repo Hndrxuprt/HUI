@@ -1160,6 +1160,63 @@
 				<Texture parentKey="Highlight" setAllPoints="true" file="Interface\Buttons\ButtonHilight-Square" alphaMode="ADD"/>
 			</Layer>
 		</Layers>
+		<Frames>
+			<Frame parentKey="RankSwitch" hidden="true">
+				<Size x="38" y="19"/>
+				<Anchors>
+					<Anchor point="TOP" y="1"/>
+				</Anchors>
+				<Layers>
+					<Layer level="OVERLAY">
+						<Texture parentKey="BG" atlas="wowlabs-switch-slots-key" setAllPoints="true"/>
+						<FontString parentKey="Text" inherits="GameFontHighlightSmallOutline" justifyH="CENTER" wordwrap="false">
+							<Anchors>
+								<Anchor point="LEFT" x="12" y="0"/>
+								<Anchor point="RIGHT" x="-12" y="0"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+				<Frames>
+					<Button parentKey="PrevButton">
+						<Size x="12" y="19"/>
+						<Anchors>
+							<Anchor point="LEFT" x="0" y="0"/>
+						</Anchors>
+						<NormalTexture atlas="common-icon-backarrow" useAtlasSize="false">
+							<Size x="12" y="12"/>
+							<Anchors>
+								<Anchor point="CENTER"/>
+							</Anchors>
+						</NormalTexture>
+						<HighlightTexture atlas="common-icon-backarrow" useAtlasSize="false" alphaMode="ADD" alpha="0.3">
+							<Size x="12" y="12"/>
+							<Anchors>
+								<Anchor point="CENTER"/>
+							</Anchors>
+						</HighlightTexture>
+					</Button>
+					<Button parentKey="NextButton">
+						<Size x="12" y="19"/>
+						<Anchors>
+							<Anchor point="RIGHT" x="0" y="0"/>
+						</Anchors>
+						<NormalTexture atlas="common-icon-forwardarrow" useAtlasSize="false">
+							<Size x="12" y="12"/>
+							<Anchors>
+								<Anchor point="CENTER"/>
+							</Anchors>
+						</NormalTexture>
+						<HighlightTexture atlas="common-icon-forwardarrow" useAtlasSize="false" alphaMode="ADD" alpha="0.3">
+							<Size x="12" y="12"/>
+							<Anchors>
+								<Anchor point="CENTER"/>
+							</Anchors>
+						</HighlightTexture>
+					</Button>
+				</Frames>
+			</Frame>
+		</Frames>
 		<Scripts>
 			<OnShow method="OnShow"/>
 			<OnEnter method="OnEnter"/>

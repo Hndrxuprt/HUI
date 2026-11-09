@@ -430,7 +430,7 @@ function HUI_CDMCustomAuraBarMixin:CustomizeAuraButton(auraButton, spellID)
             auraButton.Icon.iconBorder:SetShown(useBackdrop)
             auraButton.IconRight:Show()
             auraButton.IconRight.iconBorder:SetShown(useBackdrop)
-            auraButton.IconRight:SetTexture(spellID and C_Spell.GetSpellTexture(spellID))
+            auraButton.IconRight:SetTexture(Addon:IsSpellSupported(spellID) and C_Spell.GetSpellTexture(spellID) or nil)
         elseif iconPos > 1 then
             auraButton:SetIcon(auraButton.Icon)
             auraButton.Icon:Show()
@@ -522,9 +522,9 @@ end
 function HUI_CDMCustomAuraBarMixin:UpdatePlaceholder(placeholder, spellID)
     local frameName = self.frameName
 	Addon.PP.Size(placeholder, self:GetBarSize())
-	placeholder.Icon:SetTexture(C_Spell.GetSpellTexture(spellID))
+	placeholder.Icon:SetTexture(Addon:IsSpellSupported(spellID) and C_Spell.GetSpellTexture(spellID) or nil)
     if placeholder.IconRight then
-        placeholder.IconRight:SetTexture(C_Spell.GetSpellTexture(spellID))
+        placeholder.IconRight:SetTexture(Addon:IsSpellSupported(spellID) and C_Spell.GetSpellTexture(spellID) or nil)
     end
     local iconScale = Addon:GetValue("UseIconScale", nil, frameName) and Addon:GetValue("IconScale", nil, frameName) or 1
     HUI_CDMCustomFrameCustomized:ApplyBarIconSize(placeholder, frameName, iconScale)

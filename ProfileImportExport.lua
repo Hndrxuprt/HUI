@@ -638,6 +638,13 @@ function HUIProfilesMixin:ExportProfile()
     local profileName = self:GetPlayerProfile()
     if Addon.P.profilesList[profileName] then
         local exportTbl = CopyTable(Addon.P.profilesList[profileName])
+        if type(exportTbl.GlobalSettings) ~= "table" then
+            exportTbl.GlobalSettings = {}
+        end
+        local gameFamily = Addon:GetGameFamily()
+        if gameFamily then
+            exportTbl.GlobalSettings.GameVersion = gameFamily
+        end
         local payload = exportTbl
         local exportString = Addon.CompressData(payload)
 
@@ -671,6 +678,35 @@ function HUIImportDialogMixin:HasDefaultProfiles()
     return i == 0
 end
 
+local function SanitizeCrossVersionCustomFrames(profileTable, originFamily)
+    local frames = profileTable.CDMCustomFrames
+    if type(frames) ~= "table" then return 0 end
+    local changed = 0
+    for _, frame in ipairs(frames) do
+        local tracked = type(frame) == "table" and frame.trackedIDs
+        if type(tracked) == "table" then
+            local kept = {}
+            local removed = false
+            for _, entry in ipairs(tracked) do
+                if type(entry) == "table" and entry.type == "slot" then
+                    kept[#kept + 1] = entry
+                else
+                    removed = true
+                end
+            end
+            if removed then
+                if type(frame.legacyTrackedIDs) ~= "table" then
+                    frame.legacyTrackedIDs = CopyTable(tracked)
+                    frame.legacyGameVersion = originFamily or "unknown"
+                end
+                frame.trackedIDs = kept
+                changed = changed + 1
+            end
+        end
+    end
+    return changed
+end
+
 function HUIImportDialogMixin:AcceptImport(_, profileString, profileName, shouldSet, rewrite)
     if not profileString then
         profileString = HUIImportProfile.ImportControl.InputContainer.EditBox:GetText()
@@ -692,6 +728,17 @@ function HUIImportDialogMixin:AcceptImport(_, profileString, profileName, should
             if profileTable then
                 if type(profileTable.data) == "table" then
                     profileTable = profileTable.data
+                end
+                local global = profileTable.GlobalSettings
+                local originFamily = type(global) == "table" and global.GameVersion or nil
+                local currentFamily = Addon:GetGameFamily()
+                local crossVersion = originFamily ~= nil and currentFamily ~= nil and originFamily ~= currentFamily
+                local unknownOnForever = currentFamily == "forever" and originFamily == nil
+                if crossVersion or unknownOnForever then
+                    local changed = SanitizeCrossVersionCustomFrames(profileTable, originFamily)
+                    if changed > 0 then
+                        Addon.Print(L.ProfileCrossVersionCleaned)
+                    end
                 end
                 Addon.RemapMedia(profileTable)
                 Addon.P.profilesList[profileName] = CopyTable(profileTable)

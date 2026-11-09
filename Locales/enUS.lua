@@ -184,6 +184,7 @@ L.ProfilesHeaderText = "You can change the active database profile, so you can h
 L.ProfilesCopyText = "Copy the settings from one existing profile into the currently active profile."
 L.ProfilesDeleteText = "Delete existing and unused profiles from the database to save space, and cleanup the SavedVariables file."
 L.ProfilesImportText = "Share your profile or import someone else's with a simple string."
+L.ProfileCrossVersionCleaned = "Profile imported from another or unknown game version: spell and item contents of custom frames were removed. Slot tracking was kept."
 
 -- ==========================================
 -- WeakAuras Integration

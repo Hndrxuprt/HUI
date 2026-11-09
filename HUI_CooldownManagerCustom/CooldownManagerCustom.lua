@@ -4,6 +4,115 @@ local profileTable
 
 local pinnedFrameLabel
 
+local function IsForeverClient()
+    local ok, _, _, _, iface = pcall(GetBuildInfo)
+    if not ok or type(iface) ~= "number" then
+        return false
+    end
+    if issecretvalue and issecretvalue(iface) then
+        return false
+    end
+    return iface >= 16000 and iface < 20000
+end
+
+Addon.IS_FOREVER = IsForeverClient()
+
+local unsupportedItemIDs = {}
+local pendingItemData = {}
+local spellSupportCache = {}
+
+function Addon:IsSpellSupported(spellID)
+    if issecretvalue and issecretvalue(spellID) then
+        return false
+    end
+    spellID = tonumber(spellID)
+    if not spellID then
+        return false
+    end
+    local supported = spellSupportCache[spellID]
+    if supported ~= nil then
+        return supported
+    end
+    supported = C_Spell.DoesSpellExist(spellID) and true or false
+    spellSupportCache[spellID] = supported
+    return supported
+end
+
+function Addon:IsItemSupported(itemID)
+    if issecretvalue and issecretvalue(itemID) then
+        return false
+    end
+    itemID = tonumber(itemID)
+    if not itemID or unsupportedItemIDs[itemID] then
+        return false
+    end
+    if C_Item.IsItemDataCachedByID(itemID) then
+        return true
+    end
+    if C_Item.DoesItemExistByID(itemID) then
+        return true
+    end
+    unsupportedItemIDs[itemID] = true
+    return false
+end
+
+function Addon:RequestItemData(itemID, callback)
+    if issecretvalue and issecretvalue(itemID) then
+        if callback then callback(false) end
+        return false
+    end
+    itemID = tonumber(itemID)
+    if not itemID or unsupportedItemIDs[itemID] then
+        if callback then callback(false) end
+        return false
+    end
+    if C_Item.IsItemDataCachedByID(itemID) then
+        if callback then callback(true) end
+        return true
+    end
+    if not C_Item.DoesItemExistByID(itemID) then
+        unsupportedItemIDs[itemID] = true
+        if callback then callback(false) end
+        return false
+    end
+
+    local callbacks = pendingItemData[itemID]
+    if callbacks then
+        if callback then callbacks[#callbacks + 1] = callback end
+        return false
+    end
+
+    callbacks = {}
+    if callback then callbacks[1] = callback end
+    pendingItemData[itemID] = callbacks
+
+    Item:CreateFromItemID(itemID):ContinueOnItemLoad(function(_, success)
+        pendingItemData[itemID] = nil
+        local loaded = success ~= false and C_Item.IsItemDataCachedByID(itemID)
+        if not loaded then
+            unsupportedItemIDs[itemID] = true
+        end
+        for i = 1, #callbacks do
+            callbacks[i](loaded)
+        end
+    end)
+    return false
+end
+
+local FOREVER_COUNT_ITEM_BY_SPELL = {
+    [1120] = 6265,
+    [8288] = 6265,
+    [8289] = 6265,
+    [11675] = 6265,
+}
+
+function Addon:GetForcedCountItemID(spellID)
+    if not self.IS_FOREVER or not spellID then
+        return nil
+    end
+    return FOREVER_COUNT_ITEM_BY_SPELL[spellID]
+end
+
 Addon.SPELLID_TO_AURASPELLID = {
     
 }
@@ -153,12 +262,12 @@ function HUI_CDMCustomItemMixin:SetSpellID(spellID, baseSpellID)
     self.spellID = spellID
     self.baseSpellID = baseSpellID
     self.count = 0
-    self.overrideID = C_Spell.GetOverrideSpell(spellID)
+    self.overrideID = Addon:IsSpellSupported(spellID) and C_Spell.GetOverrideSpell(spellID) or nil
     --self:FindAuraForCurrentSpellID()
 
     self.rangeCheckSpellID = spellID
     self.spellOutOfRange = nil
-    if C_Spell.SpellHasRange(spellID) then
+    if Addon:IsSpellSupported(spellID) and C_Spell.SpellHasRange(spellID) then
         C_Spell.EnableSpellRangeCheck(spellID, true)
     end
     self:InvalidateAura()
@@ -194,12 +303,31 @@ function HUI_CDMCustomItemMixin:GetLastUsedPotion()
     return parentFrame.lastUsedPotions[self.potType]
 end
 
+local function GetAvailablePotionItem(owner, itemID)
+    if not Addon:IsItemSupported(itemID) then
+        return nil
+    end
+    if not C_Item.IsItemDataCachedByID(itemID) then
+        Addon:RequestItemData(itemID, function(loaded)
+            if loaded then
+                owner:SchedulePotionUpdate()
+            end
+        end)
+        return nil
+    end
+    local count = C_Item.GetItemCount(itemID, nil, true) or 0
+    if count > 0 then
+        return itemID
+    end
+    return nil
+end
+
 function HUI_CDMCustomItemMixin:FindAvailablePotion(items, kindFilter)
     for _, id in ipairs(items) do
         if not kindFilter or (Addon.Potions.byItemID[id] and Addon.Potions.byItemID[id].kind == kindFilter) then
-            local count = C_Item.GetItemCount(id, nil, true) or 0
-            if count > 0 then
-                return id
+            local available = GetAvailablePotionItem(self, id)
+            if available then
+                return available
             end
         end
     end
@@ -221,17 +349,18 @@ function HUI_CDMCustomItemMixin:FindAvailablePotionWithinRank(items, kindKey)
             segEnd = segEnd + 1
         end
         for i = index, segEnd do
-            if Addon.Potions.byItemID[items[i]].kind == kindKey then
-                local count = C_Item.GetItemCount(items[i], nil, true) or 0
-                if count > 0 then
-                    return items[i]
+            local entry = Addon.Potions.byItemID[items[i]]
+            if entry and entry.kind == kindKey then
+                local available = GetAvailablePotionItem(self, items[i])
+                if available then
+                    return available
                 end
             end
         end
         for i = index, segEnd do
-            local count = C_Item.GetItemCount(items[i], nil, true) or 0
-            if count > 0 then
-                return items[i]
+            local available = GetAvailablePotionItem(self, items[i])
+            if available then
+                return available
             end
         end
         index = segEnd + 1
@@ -262,21 +391,33 @@ function HUI_CDMCustomItemMixin:UpdatePotionItem()
     if not itemID then
         if kindKey and priorityType == 3 then
             for _, id in ipairs(potInfo.items) do
-                if Addon.Potions.byItemID[id] and Addon.Potions.byItemID[id].kind == kindKey then
+                if Addon:IsItemSupported(id) and Addon.Potions.byItemID[id] and Addon.Potions.byItemID[id].kind == kindKey then
                     itemID = id
                     break
                 end
             end
         end
         if not itemID then
-            itemID = potInfo.items[1]
+            local first = potInfo.items[1]
+            if first and Addon:IsItemSupported(first) then
+                itemID = first
+            end
         end
     end
 
     self.itemID = itemID
     if itemID then
-        local spellName, spellID = C_Item.GetItemSpell(itemID)
-        self.spellID = spellID
+        if C_Item.IsItemDataCachedByID(itemID) then
+            local spellName, spellID = C_Item.GetItemSpell(itemID)
+            self.spellID = spellID
+        else
+            Addon:RequestItemData(itemID, function(loaded)
+                if loaded then
+                    self:SchedulePotionUpdate()
+                end
+            end)
+            self.spellID = nil
+        end
     else
         self.spellID = nil
     end
@@ -348,9 +489,13 @@ function HUI_CDMCustomItemMixin:GetCooldownInfo()
         cooldownInfo.enable = enable
         self.cooldownInfo = cooldownInfo
     elseif self.type == "spell" then
-        self.overrideID = C_Spell.GetOverrideSpell(self.spellID)
+        self.overrideID = Addon:IsSpellSupported(self.spellID) and C_Spell.GetOverrideSpell(self.spellID) or nil
         local spellID = self.overrideID or self.spellID
-        self.cooldownInfo = C_Spell.GetSpellCooldown(spellID)
+        if Addon:IsSpellSupported(spellID) then
+            self.cooldownInfo = C_Spell.GetSpellCooldown(spellID)
+        else
+            self.cooldownInfo = nil
+        end
     elseif self.type == "slot" then
         --self.cooldownInfo = C_Spell.GetSpellCooldown(self:GetSpellID())
         local start, duration, enable = GetInventoryItemCooldown("player", self.slotID)
@@ -369,13 +514,17 @@ end
 
 function HUI_CDMCustomItemMixin:GetCooldownDurationObj()
     if self.type == "spell" then
+        local spellID = self.overrideID or self.baseSpellID or self.spellID
+        if not Addon:IsSpellSupported(spellID) then
+            self.durationObj = nil
+            return self.durationObj
+        end
+
         local cooldownFrame = self:GetCooldownFrame()
         local ignoreGCD = not cooldownFrame.showGCDSwipe or self.barType ~= nil
         local forceSpellCD = false
 
         local chargeCooldownInfo = self:GetChargesCooldownInfo()
-
-        local spellID = self.overrideID or self.baseSpellID or self.spellID
 
         if chargeCooldownInfo then
             if chargeCooldownInfo.maxCharges == 1 then
@@ -397,7 +546,7 @@ function HUI_CDMCustomItemMixin:GetSpellTexture()
     local texture = 136243
     if self.type ~= "spell" and self.itemID then
         texture = C_Item.GetItemIconByID(self.itemID)
-    elseif self.type == "spell" and spellID then
+    elseif self.type == "spell" and spellID and Addon:IsSpellSupported(spellID) then
         texture = C_Spell.GetSpellTexture(spellID)
     end
 
@@ -475,10 +624,18 @@ end
 function HUI_CDMCustomItemMixin:RefreshCount()
     local applications = self.Icon.Applications or self.Applications
     local count = 0
-    if (self.type == "item" or self.type == "potion") and self.itemID then
+    local forcedItemID
+    if self.type == "spell" then
+        forcedItemID = Addon:GetForcedCountItemID(self.spellID) or Addon:GetForcedCountItemID(self.baseSpellID)
+    end
+
+    if forcedItemID then
+        count = C_Item.GetItemCount(forcedItemID, false, true) or 0
+    elseif (self.type == "item" or self.type == "potion") and self.itemID then
         count = C_Item.GetItemCount(self.itemID, nil, true) or 0
     elseif self.type == "spell" then
         if not self.spellID then return end
+        if not Addon:IsSpellSupported(self.spellID) then return end
 
         local charges = C_Spell.GetSpellCharges(self.spellID) or {}
 
@@ -495,17 +652,21 @@ function HUI_CDMCustomItemMixin:RefreshCount()
     end
     self.count = count
 
-    if not self:IsBarFrame() and not Addon:GetValue("CDMAuraShowStacks", nil, self.parentName) then
+    local forceShow = forcedItemID ~= nil
+    if not forceShow and not self:IsBarFrame() and not Addon:GetValue("CDMAuraShowStacks", nil, self.parentName) then
         applications.Applications:SetText("")
         applications:SetAlpha(0)
     else
         applications.Applications:SetText(count)
-        applications:SetAlpha(count)
+        applications:SetAlpha(forceShow and 1 or count)
     end
 
     if self.Bar and self.Bar.Count then
+        if forceShow then
+            self.Bar.Count:Show()
+        end
         self.Bar.Count:SetText(count)
-        self.Bar.Count:SetAlpha(count)
+        self.Bar.Count:SetAlpha(forceShow and 1 or count)
     end
 
     self:RefreshIconDesaturation()
@@ -518,6 +679,7 @@ function HUI_CDMCustomItemMixin:GetChargesCooldownInfo()
     local auraCooldown = self:GetAuraFrame()
 
     if not self.spellID then return false end
+    if not Addon:IsSpellSupported(self.spellID) then return false end
 
     local charges = C_Spell.GetSpellCharges(self.spellID)
 
@@ -1316,7 +1478,13 @@ function HUI_CDMCustomItemMixin:GetAuraUnit()
     if tbl then
         auraUnit = tbl.auraUnit
     end
-    auraUnit = auraUnit or (C_Spell.IsSpellHelpful(self.auraSpellID) and "player" or "target")
+    if not auraUnit then
+        if Addon:IsSpellSupported(self.auraSpellID) then
+            auraUnit = C_Spell.IsSpellHelpful(self.auraSpellID) and "player" or "target"
+        else
+            auraUnit = "player"
+        end
+    end
     self.auraUnit = auraUnit
 
     return auraUnit
@@ -1422,7 +1590,6 @@ function HUI_CDMCustomFrameMixin:OnLoad()
     self.itemPool = CreateFramePool("Frame", self.Container, self.itemTemplate, itemResetCallback)
 
     self:ResetIndexes()
-    self.__pendingItemLoads = {}
     self.lastUsedPotions = {}
     self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.EndOrderChange", self.OnCustomItemListReorderEnded)
     self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.ItemAdded", self.OnCustomItemListItemUpdate)
@@ -1437,11 +1604,6 @@ function HUI_CDMCustomFrameMixin:OnLoad()
     self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.AuraUnitChanged", self.OnAuraOverrideChanged)
     self:AddDynamicEventMethod(EventRegistry, "CDMCustomItemList.AuraTypeChanged", self.OnAuraOverrideChanged)
 
-    for _, data in ipairs(self.itemList) do
-        if data.type == "item" and not C_Item.IsItemDataCachedByID(tonumber(data.id)) then
-            C_Item.RequestLoadItemDataByID(tonumber(data.id))
-        end
-    end
     self:RefreshLayout()
 
     self:SetMouseClickEnabled(false)
@@ -1618,6 +1780,15 @@ function HUI_CDMCustomFrameMixin:UpdateSlotBaseID(data, itemID)
     end
 end
 
+function HUI_CDMCustomFrameMixin:ScheduleLayoutRefresh()
+    if self.__layoutRefreshPending then return end
+    self.__layoutRefreshPending = true
+    RunNextFrame(function()
+        self.__layoutRefreshPending = nil
+        self:RefreshLayout()
+    end)
+end
+
 function HUI_CDMCustomFrameMixin:RequestResolveRetry(id)
     if self.__resolveRetryPending then return end
     if not self.__resolveRetryAttempts then self.__resolveRetryAttempts = {} end
@@ -1627,7 +1798,7 @@ function HUI_CDMCustomFrameMixin:RequestResolveRetry(id)
     self.__resolveRetryPending = true
     C_Timer.After(math.min(0.5 * 2 ^ (attempts - 1), 4), function()
         self.__resolveRetryPending = nil
-        self:RefreshLayout()
+        self:ScheduleLayoutRefresh()
     end)
 end
 
@@ -1659,6 +1830,15 @@ function HUI_CDMCustomFrameMixin:RegisterUnitAura()
     end
 end
 
+
+function HUI_CDMCustomFrameMixin:RefreshForcedItemCounts()
+    if not Addon.IS_FOREVER then return end
+    for _, itemFrame in ipairs(self.__allSpellItems) do
+        if Addon:GetForcedCountItemID(itemFrame.spellID) or Addon:GetForcedCountItemID(itemFrame.baseSpellID) then
+            itemFrame:RefreshCount()
+        end
+    end
+end
 
 function HUI_CDMCustomFrameMixin:OnShow()
     --self:RegisterEvent("PLAYER_IN_COMBAT_CHANGED")
@@ -1970,6 +2150,7 @@ function HUI_CDMCustomFrameMixin:OnEvent(event, ...)
                 end
             end
         end
+        self:RefreshForcedItemCounts()
     elseif event == "BAG_UPDATE_DELAYED" then
         for _, itemFrame in ipairs(self.__allItemItems) do
             if itemFrame.type == "item" then
@@ -1981,6 +2162,7 @@ function HUI_CDMCustomFrameMixin:OnEvent(event, ...)
         for _, itemFrame in ipairs(self.__allPotionItems) do
             itemFrame:OnPotionCountChanged()
         end
+        self:RefreshForcedItemCounts()
     elseif event == "BAG_UPDATE_COOLDOWN" then
         for _, itemFrame in ipairs(self.__allItemItems) do
             if itemFrame.type == "item" then
@@ -2183,7 +2365,6 @@ function HUI_CDMCustomFrameMixin:GetVisibleChildren()
 
     self.visibleChildren = {}
     self.hasSpellElement = false
-    if not self.__pendingItemLoads then self.__pendingItemLoads = {} end
 
     for index, data in ipairs(self.itemList) do
         local isKnown = false
@@ -2195,17 +2376,20 @@ function HUI_CDMCustomFrameMixin:GetVisibleChildren()
                 data.id = Addon:GetRacialSpell() or data.id
             end
             
-            isKnown = self:FindKnownInCDM(data.baseID or data.id)
+            local targetSpellID = data.baseID or data.id
+            if Addon:IsSpellSupported(targetSpellID) then
+                isKnown = self:FindKnownInCDM(targetSpellID)
 
-            if not isKnown then
-                for i=1, 0, -1 do
-                    if not isKnown then
-                        isKnown = C_SpellBook.IsSpellKnownOrInSpellBook(data.baseID or data.id, i)
+                if not isKnown then
+                    for i=1, 0, -1 do
+                        if not isKnown then
+                            isKnown = C_SpellBook.IsSpellKnownOrInSpellBook(targetSpellID, i)
+                        end
                     end
                 end
             end
 
-            if isRacial then
+            if isKnown and isRacial then
                 local currentProfile = Addon:GetCurrentProfile()
                 local trackedTable = HUIDB.Profiles.profilesList[currentProfile]["GlobalSettings"].RacialSpellsTracked
                 local raceID = select(3, UnitRace("player"))
@@ -2237,25 +2421,23 @@ function HUI_CDMCustomFrameMixin:GetVisibleChildren()
                 if data.baseID ~= itemID then
                     self:UpdateSlotBaseID(data, itemID)
                 end
-                if not C_Item.IsItemDataCachedByID(itemID) and C_Item.DoesItemExistByID(itemID) then
-                    C_Item.RequestLoadItemDataByID(itemID)
-                    if not self.__pendingItemLoads[itemID] then
-                        self.__pendingItemLoads[itemID] = true
-                        Item:CreateFromItemID(itemID):ContinueOnItemLoad(function()
-                            self.__pendingItemLoads[itemID] = nil
-                            self:RefreshLayout()
+                if not C_Item.IsItemDataCachedByID(itemID) then
+                    if Addon:IsItemSupported(itemID) then
+                        Addon:RequestItemData(itemID, function(loaded)
+                            if loaded then
+                                self:ScheduleLayoutRefresh()
+                            end
                         end)
                     end
-                    return
-                end
-                local spellName, spellID = C_Item.GetItemSpell(itemID)
+                    isKnown = false
+                else
+                    local spellName, spellID = C_Item.GetItemSpell(itemID)
 
-                isKnown = spellID and true or false
+                    isKnown = spellID and true or false
+                end
             end
         end
         if data.type == "item" then
-            isKnown = true
-
             local isHealthstone = IsHealthstoneItem(data.id)
 
             if isHealthstone then
@@ -2267,42 +2449,44 @@ function HUI_CDMCustomFrameMixin:GetVisibleChildren()
                 end
             end
 
-            if not C_Item.IsItemDataCachedByID(data.id) then
-                if not self.__pendingItemLoads[data.id] then
-                    self.__pendingItemLoads[data.id] = true
-                    local itemData = Item:CreateFromItemID(tonumber(data.id))
-                    itemData:ContinueOnItemLoad(function()
-                        self.__pendingItemLoads[data.id] = nil
-                        self:RefreshLayout()
-                    end)
-                end
-                return                
-            end
-            local spellName, spellID = C_Item.GetItemSpell(data.id)
-            local count = C_Item.GetItemCount(data.id, nil, true) or 0
-            local isUsable = C_Item.IsUsableItem(data.id)
-            if spellID then
-                if self.__resolveRetryAttempts then self.__resolveRetryAttempts[data.id] = nil end
-            else
-                self:RequestResolveRetry(data.id)
-            end
-            --[[ local hideEmpty = Addon:GetValue("CDMCustomHideEmpty", nil, self.frameName)
-            if not spellID or ( count == 0 and hideEmpty ) then
+            local itemID = tonumber(data.id)
+            if not Addon:IsItemSupported(itemID) then
                 isKnown = false
-            end ]]
+            elseif not C_Item.IsItemDataCachedByID(itemID) then
+                Addon:RequestItemData(itemID, function(loaded)
+                    if loaded then
+                        self:ScheduleLayoutRefresh()
+                    end
+                end)
+                isKnown = false
+            else
+                isKnown = true
+                local spellName, spellID = C_Item.GetItemSpell(itemID)
+                local count = C_Item.GetItemCount(itemID, nil, true) or 0
+                local isUsable = C_Item.IsUsableItem(itemID)
+                if spellID then
+                    if self.__resolveRetryAttempts then self.__resolveRetryAttempts[itemID] = nil end
+                else
+                    self:RequestResolveRetry(itemID)
+                end
+                --[[ local hideEmpty = Addon:GetValue("CDMCustomHideEmpty", nil, self.frameName)
+                if not spellID or ( count == 0 and hideEmpty ) then
+                    isKnown = false
+                end ]]
+            end
         end
         if data.type == "potion" then
             local potInfo = Addon.Potions.byType[data.potType]
-            isKnown = potInfo ~= nil
+            isKnown = false
             if potInfo then
                 for _, potItemID in ipairs(potInfo.items) do
-                    if not C_Item.IsItemDataCachedByID(potItemID) then
-                        C_Item.RequestLoadItemDataByID(potItemID)
-                        if not self.__pendingItemLoads[potItemID] then
-                            self.__pendingItemLoads[potItemID] = true
-                            Item:CreateFromItemID(potItemID):ContinueOnItemLoad(function()
-                                self.__pendingItemLoads[potItemID] = nil
-                                self:RefreshLayout()
+                    if Addon:IsItemSupported(potItemID) then
+                        isKnown = true
+                        if not C_Item.IsItemDataCachedByID(potItemID) then
+                            Addon:RequestItemData(potItemID, function(loaded)
+                                if loaded then
+                                    self:ScheduleLayoutRefresh()
+                                end
                             end)
                         end
                     end

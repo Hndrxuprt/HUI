@@ -246,7 +246,13 @@ function HUI_CDMCustomAuraMixin:GetAuraUnitForSpell(spellID)
 	end
 
 	local tbl = Addon.SPELLID_TO_AURASPELLID[spellID]
-	return (tbl and tbl.auraUnit) or (C_Spell.IsSpellHelpful(spellID) and "player" or "target")
+	if tbl and tbl.auraUnit then
+		return tbl.auraUnit
+	end
+	if not Addon:IsSpellSupported(spellID) then
+		return "player"
+	end
+	return C_Spell.IsSpellHelpful(spellID) and "player" or "target"
 end
 
 function HUI_CDMCustomAuraMixin:GetAllAuraSounds(spellID)
@@ -575,7 +581,7 @@ function HUI_CDMCustomAuraMixin:RefreshAuraList()
 	for index, data in ipairs(self.itemList or {}) do
 		if data.type == "spell" then
 			local auraSpellID = tonumber(data.id)
-			if auraSpellID then
+			if auraSpellID and Addon:IsSpellSupported(auraSpellID) then
 				trackedSpellIDs[#trackedSpellIDs + 1] = auraSpellID
 				auraCount = auraCount + 1
 			end
